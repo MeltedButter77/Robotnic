@@ -1,16 +1,35 @@
-# This is a sample Python script.
+import json
+import discord
+from discord.ext import commands
 
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+# Load the token from config.json
+with open('config.json') as config_file:
+    config = json.load(config_file)
+token = config['token']
 
+# Define the intents
+intents = discord.Intents.default()
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+# Create a bot instance
+bot = commands.Bot(intents=intents)
 
+# Print "Hello World"
+print("Hello World")
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user.name}#{bot.user.discriminator}!')
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    # Sync the command tree to register slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f'Successfully synced {len(synced)} commands.')
+    except Exception as e:
+        print(f'Error syncing commands: {e}')
+
+@bot.tree.command(name="ping", description="Replies with Pong!")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong!")
+
+# Run the bot
+bot.run(token)
