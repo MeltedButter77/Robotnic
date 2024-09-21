@@ -1,35 +1,32 @@
 import json
 import discord
 from discord.ext import commands
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+token = str(os.getenv("BOT_TOKEN"))
 
 # Load the token from config.json
 with open('config.json') as config_file:
     config = json.load(config_file)
-token = config['token']
 
 # Define the intents
 intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
 
 # Create a bot instance
-bot = commands.Bot(intents=intents)
+bot = commands.Bot(intents=intents, command_prefix="/")
 
-# Print "Hello World"
-print("Hello World")
-
+intents.members = True
+intents.message_content = True
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user.name}#{bot.user.discriminator}!')
-
-    # Sync the command tree to register slash commands
-    try:
-        synced = await bot.tree.sync()
-        print(f'Successfully synced {len(synced)} commands.')
-    except Exception as e:
-        print(f'Error syncing commands: {e}')
-
-@bot.tree.command(name="ping", description="Replies with Pong!")
-async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("Pong!")
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    print('------')
+    # Load the commands from the 'my_commands' extension
+    await bot.load_extension("utils")
 
 # Run the bot
 bot.run(token)
