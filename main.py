@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-token = str(os.getenv("BOT_TOKEN"))
+token = str(os.getenv("TOKEN"))
 
 # Load the token from config.json
 with open('config.json') as config_file:
@@ -25,8 +25,11 @@ intents.message_content = True
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('------')
-    # Load the commands from the 'my_commands' extension
+
+    # Loads commands from the extensions
     await bot.load_extension("utils")
+    await bot.load_extension("channels")
+    print("Loaded extensions successfully!")
 
 # Run the bot
 bot.run(token)
