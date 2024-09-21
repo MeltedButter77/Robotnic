@@ -1,3 +1,5 @@
+from unicodedata import category
+
 import discord
 from discord.ext import commands
 import json
@@ -17,8 +19,10 @@ class Channels(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         guild = member.guild
         if after.channel:
+            channel_hub = discord.utils.get(guild.voice_channels, id=channel_hub_id)
+
             # Creates Temp Channel
-            if after.channel.id == channel_hub_id:
+            if after.channel.id == channel_hub.id:
                 values = temp_channels.values()
                 channel_number = 1
                 for i, value in enumerate(sorted(values)):
@@ -27,7 +31,7 @@ class Channels(commands.Cog):
                         break
                     channel_number = value + 1
 
-                channel = await guild.create_voice_channel("Lobby " + f"{channel_number}")
+                channel = await guild.create_voice_channel(category=channel_hub.category, name="Lobby " + f"{channel_number}")
                 temp_channels[channel.id] = channel_number
 
                 await member.move_to(channel)
