@@ -55,13 +55,17 @@ class Channels(commands.Cog):
 
         # Sending a message with the dropdown menu and embed
         view = CreatorSelectView(channels)  # This creates the view with the dropdown
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        if len(channels) > 0:
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        else:
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
     @discord.app_commands.command()
     async def create_channel_hub(self, interaction: discord.Interaction):
         channel = await interaction.guild.create_voice_channel(name="➕ Create Channel",)
-        query = 'INSERT INTO temp_channel_hubs (guild_id, channel_id, number) VALUES (?, ?, ?)'
-        sql_cursor.execute(query, (interaction.guild.id, channel.id, 1))
+        query = 'INSERT INTO temp_channel_hubs (guild_id, channel_id) VALUES (?, ?)'
+        sql_cursor.execute(query, (interaction.guild.id, channel.id))
         sql_connection.commit()
         await interaction.response.send_message(f"Created <#{channel.id}>.", ephemeral=True)
 
@@ -74,8 +78,8 @@ class Channels(commands.Cog):
         if channel.id in channel_hub_ids:
             return await interaction.response.send_message(f"<#{channel.id}> is already a Hub", ephemeral=True)
 
-        query = 'INSERT INTO temp_channel_hubs (guild_id, channel_id, number) VALUES (?, ?, ?)'
-        sql_cursor.execute(query, (interaction.guild.id, channel.id, 1))
+        query = 'INSERT INTO temp_channel_hubs (guild_id, channel_id) VALUES (?, ?)'
+        sql_cursor.execute(query, (interaction.guild.id, channel.id))
         sql_connection.commit()
         await interaction.response.send_message(f"Made <#{channel.id}> a channel creator", ephemeral=True)
 
