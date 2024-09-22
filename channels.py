@@ -58,6 +58,14 @@ class Channels(commands.Cog):
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     @discord.app_commands.command()
+    async def create_channel_hub(self, interaction: discord.Interaction):
+        channel = await interaction.guild.create_voice_channel(name="➕ Create Channel",)
+        query = 'INSERT INTO temp_channel_hubs (guild_id, channel_id, number) VALUES (?, ?, ?)'
+        sql_cursor.execute(query, (interaction.guild.id, channel.id, 1))
+        sql_connection.commit()
+        await interaction.response.send_message(f"Created <#{channel.id}>.", ephemeral=True)
+
+    @discord.app_commands.command()
     async def set_channel_hub(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
         query = 'SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?'
         sql_cursor.execute(query, (interaction.guild.id,))
