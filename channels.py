@@ -73,6 +73,7 @@ class Channels(commands.Cog):
 
     @discord.app_commands.command()
     async def remove_channel_hub(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        # This command should be useless with the addition of removing from database when deleted
         query = 'DELETE FROM temp_channel_hubs WHERE guild_id = ? AND channel_id = ?'
         sql_cursor.execute(query, (interaction.guild.id, channel.id,))
         deleted_rows = sql_cursor.rowcount
@@ -81,6 +82,13 @@ class Channels(commands.Cog):
             await interaction.response.send_message(f"Removed <#{channel.id}> as a channel creator", ephemeral=True)
         else:
             await interaction.response.send_message(f"<#{channel.id}> is not a channel creator", ephemeral=True)
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel):
+        query = 'DELETE FROM temp_channel_hubs WHERE guild_id = ? AND channel_id = ?'
+        sql_cursor.execute(query, (channel.guild.id, channel.id,))
+        deleted_rows = sql_cursor.rowcount
+        sql_connection.commit()
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -125,7 +133,8 @@ class Channels(commands.Cog):
             if result and len(before.channel.members) == 0:
                 # Delete the temp channel from the server
                 left_channel = discord.utils.get(member.guild.voice_channels, id=before.channel.id)
-                await left_channel.delete()
+                if left_channel:
+                    await left_channel.delete()
 
                 # Remove the channel from the database
                 sql_cursor.execute('DELETE FROM temp_channels WHERE channel_id = ?', (before.channel.id,))
