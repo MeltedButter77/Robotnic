@@ -1,49 +1,100 @@
-from unicodedata import category
-
+import sqlite3
 import discord
 from discord.ext import commands
+from discord.ui import Select, View
 import json
 
 # Load the token from config.json
 with open('config.json') as config_file:
     config = json.load(config_file)
-channel_hub_id = config["channel_hub_id"]
-temp_channels = {}
+
+# Connect to SQLite database and create a table if it doesn't exist
+sql_connection = sqlite3.connect('my_database.db')
+sql_cursor = sql_connection.cursor()
+sql_cursor.execute("CREATE TABLE IF NOT EXISTS temp_channels (guild_id INTEGER, channel_id INTEGER, number INTEGER)")
+sql_cursor.execute("CREATE TABLE IF NOT EXISTS temp_channel_hubs (guild_id INTEGER, channel_id INTEGER, number INTEGER)")
+sql_connection.commit()
 
 
 class Channels(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @discord.app_commands.command()
+    async def set_channel_hub(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        query = 'SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?'
+        sql_cursor.execute(query, (interaction.guild.id,))
+        channel_hub_ids = [row[0] for row in sql_cursor.fetchall()]
+
+        if channel.id in channel_hub_ids:
+            return await interaction.response.send_message("That channel is already a Hub", ephemeral=True)
+
+        query = 'INSERT INTO temp_channel_hubs (guild_id, channel_id, number) VALUES (?, ?, ?)'
+        sql_cursor.execute(query, (interaction.guild.id, channel.id, 1))
+        sql_connection.commit()
+        await interaction.response.send_message(f"Made <#{channel.id}> a channel creator", ephemeral=True)
+
+    @discord.app_commands.command()
+    async def remove_channel_hub(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        query = 'DELETE FROM temp_channel_hubs WHERE guild_id = ? AND channel_id = ?'
+        sql_cursor.execute(query, (interaction.guild.id, channel.id,))
+        deleted_rows = sql_cursor.rowcount
+        sql_connection.commit()
+        if deleted_rows > 0:
+            await interaction.response.send_message(f"Removed <#{channel.id}> as a channel creator", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"<#{channel.id}> is not a channel creator", ephemeral=True)
+
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        guild = member.guild
         if after.channel:
-            channel_hub = discord.utils.get(guild.voice_channels, id=channel_hub_id)
+            sql_cursor.execute('SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?', (member.guild.id,))
+            channel_hub_ids = [row[0] for row in sql_cursor.fetchall()]
 
             # Creates Temp Channel
-            if after.channel.id == channel_hub.id:
-                values = temp_channels.values()
+            if after.channel.id in channel_hub_ids:
+                # Fetch all temporary channels from the database for this guild
+                sql_cursor.execute('SELECT number FROM temp_channels WHERE guild_id = ?', (member.guild.id,))
+                values = [row[0] for row in sql_cursor.fetchall()]
+
+                # Find the lowest available number for the new channel
                 channel_number = 1
                 for i, value in enumerate(sorted(values)):
-                    if not value == i+1:
-                        channel_number = i+1
+                    if not value == i + 1:
+                        channel_number = i + 1
                         break
                     channel_number = value + 1
 
-                channel = await guild.create_voice_channel(category=channel_hub.category, name="Lobby " + f"{channel_number}")
-                temp_channels[channel.id] = channel_number
+                # Create the voice channel
+                channel = await member.guild.create_voice_channel(
+                    name="Lobby " + f"{channel_number}",
+                    category=after.channel.category
+                )
 
+                # Insert the new temporary channel into the database
+                sql_cursor.execute('INSERT INTO temp_channels (guild_id, channel_id, number) VALUES (?, ?, ?)',
+                                   (member.guild.id, channel.id, channel_number))
+                sql_connection.commit()
+
+                # Move the member to the newly created channel
                 await member.move_to(channel)
 
         # Deletes Temp Channel
         if before.channel:
-            if not after.channel in temp_channels and before.channel.id in temp_channels:
-                left_channel = discord.utils.get(guild.voice_channels, id=before.channel.id)
-                if len(left_channel.members) == 0:
-                    temp_channels.pop(left_channel.id)
-                    await left_channel.delete()
+            # Check if the member has left a temp channel and if that channel is empty
+            sql_cursor.execute('SELECT * FROM temp_channels WHERE channel_id = ?', (before.channel.id,))
+            result = sql_cursor.fetchone()
+
+            if result and len(before.channel.members) == 0:
+                # Delete the temp channel from the server
+                left_channel = discord.utils.get(member.guild.voice_channels, id=before.channel.id)
+                await left_channel.delete()
+
+                # Remove the channel from the database
+                sql_cursor.execute('DELETE FROM temp_channels WHERE channel_id = ?', (before.channel.id,))
+                sql_connection.commit()
 
 
 async def setup(bot):
     await bot.add_cog(Channels(bot))
+

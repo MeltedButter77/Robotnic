@@ -7,7 +7,7 @@ class UtilCommands(commands.Cog):
 
     @commands.hybrid_command()
     async def sync(self, ctx):
-        """Synchronize the command tree."""
+        """synchronise the command tree."""
         if ctx.author.id != 344531337174319106:
             return await ctx.send('You cannot use this command')
         await ctx.send('Syncing...')
