@@ -1,8 +1,12 @@
 import sqlite3
+from typing import List
+
 import discord
 from discord.ext import commands
 from discord.ui import Select, View, Button
 import json
+
+from jeepney.low_level import Boolean
 
 # Load the token from config.json
 with open('config.json') as config_file:
@@ -17,16 +21,22 @@ sql_connection.commit()
 
 # Creator Edit/Selection View (like an interaction menu with multiple buttons and stuff)
 class CreatorSelectView(View):
-    def __init__(self, channels):
+    def __init__(self,
+                menu_channels: List[discord.TextChannel] = None,
+                create_button: bool = False,
+                donate_button: bool = False,
+                back_button: bool = False,
+            ):
         super().__init__()
-        self.add_item(CreatorSelectMenu(channels))
-        self.add_item(CreateCreatorButton())  # Add the button
+        if create_button:
+            self.add_item(discord.ui.Button(label="Create new Creator", style=discord.ButtonStyle.success, custom_id="create_channel_creator"))
+        if donate_button:
+            self.add_item(discord.ui.Button(label="Support", url=f"{config['support_server']}", style=discord.ButtonStyle.link))
+        if back_button:
+            self.add_item(discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="back_creator_menu"))
+        if menu_channels:
+            self.add_item(CreatorSelectMenu(menu_channels))
 
-# Creator Edit/Selection Buttons
-class CreateCreatorButton(Button):
-    def __init__(self):
-        # Set the label, style, and custom_id of the button
-        super().__init__(label="Create new Creator", style=discord.ButtonStyle.success, custom_id="create_channel_creator")
 
 # Creator menu selector panel
 class CreatorSelectMenu(Select):
@@ -50,10 +60,40 @@ class Channels(commands.Cog):
     async def on_interaction(self, interaction: discord.Interaction):
         # Check if the interaction is from a component with a specific custom_id
         if interaction.data.get("custom_id") == "channel_creator_select":
-            # TODO: Remove this logic and add an editing menu
-            selected_value = interaction.data.get("values")[0]  # Get the selected value from the menu
-            await interaction.response.edit_message(content=f"Selected: <#{selected_value}> ({selected_value})")
-            await interaction.followup.send(f"You selected: <#{selected_value}> ({selected_value})", ephemeral=True)
+            selected_channel = discord.utils.get(interaction.guild.voice_channels, id=int(interaction.data.get("values")[0]))
+
+            # Creating an embed
+            embed = discord.Embed(title=f"#{selected_channel.name}", description="This channel is cool", color=0x00ff00)
+            embed.add_field(name="Name", value=f"{selected_channel.name}", inline=True)
+            embed.add_field(name="ID", value=f"{selected_channel.id}", inline=True)
+            embed.add_field(name="Category", value=f"<#{selected_channel.category_id}>" if selected_channel.category_id else "None", inline=True)
+
+            # Update the menu in the message
+            query = 'SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?'
+            sql_cursor.execute(query, (interaction.guild.id,))
+            rows = sql_cursor.fetchall()
+            channels = []
+            for row in rows:
+                channels.append(self.bot.get_channel(row[0]))
+            view = CreatorSelectView(menu_channels=channels, back_button=True)
+            await interaction.response.edit_message(embed=embed, view=view)
+
+        if interaction.data.get("custom_id") == "back_creator_menu":
+            # Create menu with channel hubs
+            query = 'SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?'
+            sql_cursor.execute(query, (interaction.guild.id,))
+            rows = sql_cursor.fetchall()
+            channels = []
+            for row in rows:
+                channels.append(self.bot.get_channel(row[0]))
+            view = CreatorSelectView(channels, create_button=True)
+
+            # Creating an embed
+            embed = discord.Embed(title="Channel Hub Setup", description="Choose an option to set the channel hub.", color=0x00ff00)
+            embed.add_field(name="Options", value="You can choose one of the options from the dropdown below.", inline=False)
+
+            # Sending a message with the dropdown menu and embed
+            await interaction.response.edit_message(embed=embed, view=view)
 
         if interaction.data.get("custom_id") == "create_channel_creator":
             # Create channel and add to db
@@ -69,7 +109,7 @@ class Channels(commands.Cog):
             channels = []
             for row in rows:
                 channels.append(self.bot.get_channel(row[0]))
-            view = CreatorSelectView(channels)
+            view = CreatorSelectView(menu_channels=channels, create_button=True, donate_button=True)
             await interaction.response.edit_message(view=view)
 
             await interaction.followup.send(f"Created <#{channel.id}>.", ephemeral=True)
@@ -83,7 +123,7 @@ class Channels(commands.Cog):
         channels = []
         for row in rows:
             channels.append(self.bot.get_channel(row[0]))
-        view = CreatorSelectView(channels)
+        view = CreatorSelectView(menu_channels=channels, create_button=True, donate_button=True)
 
         # Creating an embed
         embed = discord.Embed(title="Channel Hub Setup", description="Choose an option to set the channel hub.", color=0x00ff00)
