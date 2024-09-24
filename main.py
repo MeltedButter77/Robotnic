@@ -21,8 +21,8 @@ bot = commands.Bot(intents=intents, command_prefix="/") # replace Bot with AutoS
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    print('------')
 
+    # Sets Status
     await bot.change_presence(activity=discord.Game(name="Discord"))
 
     # Loads commands from the extensions
@@ -30,10 +30,14 @@ async def on_ready():
     await bot.load_extension("channels")
     print("Loaded extensions successfully!")
 
-    sync_channel = bot.get_channel(int(config["sync_channel_id"]))
-    await sync_channel.send('Syncing...')
+    if bot.user.id == 853490879753617458:
+        notification_channel_id = int(config["sync_channel_id"])
+    else:
+        notification_channel_id = int(config["testing_sync_channel_id"])
+    notification_channel = bot.get_channel(notification_channel_id)
+    await notification_channel.send('Syncing...')
     synced_commands = await bot.tree.sync()
-    await sync_channel.send(f'Synced {len(synced_commands)} commands!')
+    await notification_channel.send(f'Synced {len(synced_commands)} commands!')
     print("Synced the commands")
 
 # Run the bot

@@ -1,12 +1,9 @@
 import sqlite3
 from typing import List
-
 import discord
 from discord.ext import commands
-from discord.ui import Select, View, Button
+from discord.ui import Select, View
 import json
-
-from jeepney.low_level import Boolean
 
 # Load the token from config.json
 with open('config.json') as config_file:
@@ -28,14 +25,14 @@ class CreatorSelectView(View):
                 back_button: bool = False,
             ):
         super().__init__()
+        if menu_channels:
+            self.add_item(CreatorSelectMenu(menu_channels))
         if create_button:
             self.add_item(discord.ui.Button(label="Create new Creator", style=discord.ButtonStyle.success, custom_id="create_channel_creator"))
         if donate_button:
             self.add_item(discord.ui.Button(label="Support", url=f"{config['support_server']}", style=discord.ButtonStyle.link))
         if back_button:
             self.add_item(discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="back_creator_menu"))
-        if menu_channels:
-            self.add_item(CreatorSelectMenu(menu_channels))
 
 
 # Creator menu selector panel
