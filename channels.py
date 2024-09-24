@@ -111,8 +111,16 @@ class Channels(commands.Cog):
 
             await interaction.followup.send(f"Created <#{channel.id}>.", ephemeral=True)
 
-    @discord.app_commands.command()
+    @discord.app_commands.command(
+        name="setup_creators",
+        description="Create and edit Channel Hubs.",
+    )
     async def setup_creators(self, interaction: discord.Interaction):
+        # Check if the user has Manage Channels permission
+        if not interaction.user.guild_permissions.manage_channels:
+            await interaction.response.send_message(f"Sorry {interaction.user.mention}, you require the `manage_channels` permission to use that command.", ephemeral=True)
+            return
+
         # Create menu with channel hubs
         query = 'SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?'
         sql_cursor.execute(query, (interaction.guild.id,))
