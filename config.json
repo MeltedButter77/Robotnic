@@ -2,5 +2,6 @@
   "support_server": "https://discord.gg/rcAREJyMV5",
   "testing_sync_channel_id":"1189847617727909971",
   "sync_channel_id": "1288109994277076994",
-  "website": "https://jack-schultz.github.io/Discord-Bot-py/index.html"
+  "website": "https://jack-schultz.github.io/Discord-Bot-py/index.html",
+  "invite_link": "https://discord.com/oauth2/authorize?client_id=853490879753617458"
 }

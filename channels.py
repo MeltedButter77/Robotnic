@@ -172,8 +172,8 @@ class Channels(commands.Cog):
                 )
 
                 # Insert the new temporary channel into the database
-                sql_cursor.execute('INSERT INTO temp_channels (guild_id, channel_id, creator_id, number) VALUES (?, ?, ?, ?)',
-                                   (member.guild.id, channel.id, after.channel.id, channel_number))
+                query = 'INSERT INTO temp_channels (guild_id, channel_id, creator_id, number) VALUES (?, ?, ?, ?)'
+                sql_cursor.execute(query, (member.guild.id, channel.id, after.channel.id, channel_number))
                 sql_connection.commit()
 
                 # Move the member to the newly created channel

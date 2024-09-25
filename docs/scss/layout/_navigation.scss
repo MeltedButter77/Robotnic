@@ -1,0 +1,29 @@
+/* Navigation Bar */
+nav {
+  background-color: $nav-bg-color;
+  padding: 30px 0;
+
+  ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+
+    li {
+      display: inline;
+      margin-right: 20px;
+
+      a {
+        color: $nav-link-color;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 22px;
+
+        &:hover {
+          text-decoration: underline;
+          color: $nav-link-hover-color;
+        }
+      }
+    }
+  }
+}
