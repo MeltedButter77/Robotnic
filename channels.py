@@ -21,7 +21,7 @@ class CreatorSelectView(View):
     def __init__(self,
                 menu_channels: List[discord.TextChannel] = None,
                 create_button: bool = False,
-                donate_button: bool = False,
+                website_button: bool = False,
                 back_button: bool = False,
             ):
         super().__init__()
@@ -29,8 +29,8 @@ class CreatorSelectView(View):
             self.add_item(CreatorSelectMenu(menu_channels))
         if create_button:
             self.add_item(discord.ui.Button(label="Create new Creator", style=discord.ButtonStyle.success, custom_id="create_channel_creator"))
-        if donate_button:
-            self.add_item(discord.ui.Button(label="Support", url=f"{config['support_server']}", style=discord.ButtonStyle.link))
+        if website_button:
+            self.add_item(discord.ui.Button(label="Website", url=f"{config['website']}", style=discord.ButtonStyle.link))
         if back_button:
             self.add_item(discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="back_creator_menu"))
 
@@ -106,7 +106,7 @@ class Channels(commands.Cog):
             channels = []
             for row in rows:
                 channels.append(self.bot.get_channel(row[0]))
-            view = CreatorSelectView(menu_channels=channels, create_button=True, donate_button=True)
+            view = CreatorSelectView(menu_channels=channels, create_button=True, website_button=True)
             await interaction.response.edit_message(view=view)
 
             await interaction.followup.send(f"Created <#{channel.id}>.", ephemeral=True)
@@ -128,7 +128,7 @@ class Channels(commands.Cog):
         channels = []
         for row in rows:
             channels.append(self.bot.get_channel(row[0]))
-        view = CreatorSelectView(menu_channels=channels, create_button=True, donate_button=True)
+        view = CreatorSelectView(menu_channels=channels, create_button=True, website_button=True)
 
         # Creating an embed
         embed = discord.Embed(title="Channel Hub Setup", description="Choose an option to set the channel hub.", color=0x00ff00)
