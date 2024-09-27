@@ -23,11 +23,11 @@ async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
 
     # Sets Status
-    await bot.change_presence(activity=discord.Game(name="Discord"))
+    await bot.change_presence(activity=discord.Game(name="on Discord"))
 
     # Loads commands from the extensions
-    await bot.load_extension("utils")
-    await bot.load_extension("channels")
+    await bot.load_extension("cogs.utils")
+    await bot.load_extension("cogs.tempchannels")
     print("Loaded extensions successfully!")
 
     if bot.user.id == 853490879753617458:
