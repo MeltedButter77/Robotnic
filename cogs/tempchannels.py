@@ -41,7 +41,8 @@ class Database:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS temp_channel_hubs (
                     guild_id INTEGER,
-                    channel_id INTEGER
+                    channel_id INTEGER,
+                    child_name TEXT
                 )
             """)
 
@@ -57,12 +58,12 @@ class Database:
             cursor.execute('SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?', (guild_id,))
             return [row[0] for row in cursor.fetchall()]
 
-    def add_temp_channel_hub(self, guild_id: int, channel_id: int):
+    def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int):
         """Add a new temporary channel hub to the database."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
-                'INSERT INTO temp_channel_hubs (guild_id, channel_id) VALUES (?, ?)',
+                'INSERT INTO temp_channel_hubs (guild_id, channel_id, child_name) VALUES (?, ?, ?)',
                 (guild_id, channel_id)
             )
 
@@ -108,6 +109,40 @@ class Database:
             return cursor.fetchone() is not None
 
 
+def createMenuEmbed(channels):
+    embed = discord.Embed(
+        title="Setup or Modify Channel Creators",
+        description="Customise your channel creators to your specific need.",
+        color=0x00ff00
+    )
+    embed.add_field(
+        name="Current Creators:",
+        value="",
+        inline=False
+    )
+    for i, channel in enumerate(channels):
+        embed.add_field(
+            name=f"#{i + 1}. {channel.mention}",
+            value=f"ID: `{channel.id}`\nChild Channel Names: `Coming Soon`",
+            inline=True
+        )
+    return embed
+
+
+def createChannelEditEmbed(selected_channel):
+    embed = discord.Embed(
+        title=f"#{selected_channel.name}",
+        description="",
+        color=0x00ff00
+    )
+    embed.add_field(name="Name", value=selected_channel.name, inline=True)
+    embed.add_field(name="Mention", value=selected_channel.mention, inline=True)
+    embed.add_field(name="ID", value=str(selected_channel.id), inline=True)
+    category = f"<#{selected_channel.category_id}>" if selected_channel.category_id else "None"
+    embed.add_field(name="Category", value=category, inline=True)
+    return embed
+
+
 class CreatorSelectMenu(Select):
     """A dropdown menu for selecting a channel creator to edit."""
 
@@ -121,10 +156,11 @@ class CreatorSelectMenu(Select):
 
         options = [
             discord.SelectOption(
-                label=f"#{channel.name} ({channel.id})",
+                label=f"Modify Creator #{i + 1}",
+                description=f"{channel.name} ({channel.id})",
                 value=str(channel.id),
                 emoji="🔧"
-            ) for channel in channels
+            ) for i, channel in enumerate(channels)
         ]
 
         if not options:
@@ -149,22 +185,14 @@ class CreatorSelectMenu(Select):
     async def callback(self, interaction: discord.Interaction):
         """Handle the selection of a channel creator."""
         if self.values[0] == "None":
-            await interaction.response.send_message("No creators available to select.", ephemeral=True)
+            await interaction.response.send_message("Error: No creators available for select menu.", ephemeral=True)
             return
 
         selected_channel_id = int(self.values[0])
         selected_channel = self.bot.get_channel(selected_channel_id)
 
         # Create an embed with channel information
-        embed = discord.Embed(
-            title=f"#{selected_channel.name}",
-            description="This channel is cool",
-            color=0x00ff00
-        )
-        embed.add_field(name="Name", value=selected_channel.name, inline=True)
-        embed.add_field(name="ID", value=str(selected_channel.id), inline=True)
-        category = f"<#{selected_channel.category_id}>" if selected_channel.category_id else "None"
-        embed.add_field(name="Category", value=category, inline=True)
+        embed = createChannelEditEmbed(selected_channel)
 
         # Update the view to channel editor
         view = CreatorSelectView(
@@ -227,15 +255,7 @@ class CreatorSelectView(View):
         self.database.add_temp_channel_hub(interaction.guild.id, channel.id)
 
         # Create an embed with channel information
-        embed = discord.Embed(
-            title=f"#{channel.name}",
-            description="This channel is cool",
-            color=0x00ff00
-        )
-        embed.add_field(name="Name", value=channel.name, inline=True)
-        embed.add_field(name="ID", value=str(channel.id), inline=True)
-        category = f"<#{channel.category_id}>" if channel.category_id else "None"
-        embed.add_field(name="Category", value=category, inline=True)
+        embed = createChannelEditEmbed(channel)
 
         # Update the view to channel editor
         view = CreatorSelectView(
@@ -262,16 +282,7 @@ class CreatorSelectView(View):
         )
 
         # Create an embed with options
-        embed = discord.Embed(
-            title="Channel Hub Setup",
-            description="Choose an option to set the channel hub.",
-            color=0x00ff00
-        )
-        embed.add_field(
-            name="Options",
-            value="You can choose one of the options from the dropdown below.",
-            inline=False
-        )
+        embed = createMenuEmbed(channels)
 
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -340,7 +351,7 @@ class TempChannelsCommands(commands.Cog):
 
         # Create menu with channel hubs
         channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
-        channels = [self.bot.get_channel(cid) for cid in channel_ids]
+        channels = [self.bot.get_channel(channel_id) for channel_id in channel_ids]
         view = CreatorSelectView(
             menu_channels=channels,
             create_button=True,
@@ -351,16 +362,7 @@ class TempChannelsCommands(commands.Cog):
         )
 
         # Create an embed with options
-        embed = discord.Embed(
-            title="Channel Hub Setup",
-            description="Choose an option to set the channel hub.",
-            color=0x00ff00
-        )
-        embed.add_field(
-            name="Options",
-            value="You can choose one of the options from the dropdown below.",
-            inline=False
-        )
+        embed = createMenuEmbed(channels)
 
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
