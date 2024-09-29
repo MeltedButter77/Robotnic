@@ -132,7 +132,18 @@ class Database:
             return cursor.fetchone()[0]
 
 
-def createMenuEmbed(database, channels):
+def create_channel_select_menu(database, bot, guild_id):
+    # Create menu with channel hubs
+    channel_ids = database.get_temp_channel_hubs(guild_id)
+    channels = [bot.get_channel(channel_id) for channel_id in channel_ids]
+    view = CreatorSelectView(
+        menu_channels=channels,
+        create_button=True,
+        website_button=True,
+        database=database,
+        bot=bot
+    )
+
     embed = discord.Embed(
         title="Setup or Modify Channel Creators",
         description="Customise your channel creators to your specific need.",
@@ -153,10 +164,19 @@ def createMenuEmbed(database, channels):
             value=f"Child Channel Names: `{child_name}`\nUser Limit: `{user_limit}`\n",
             inline=False
         )
-    return embed
+    return view, embed
 
 
-def createChannelEditEmbed(database, selected_channel):
+def create_channel_edit_menu(database, bot, selected_channel):
+    # Update the view to channel editor
+    view = CreatorSelectView(
+        modify_button=True,
+        back_button=True,
+        delete_button=True,
+        database=database,
+        bot=bot
+    )
+
     embed = discord.Embed(
         title=f"#{selected_channel.name}",
         description="",
@@ -173,7 +193,7 @@ def createChannelEditEmbed(database, selected_channel):
     if user_limit == 0:
         user_limit = "Unlimited"
     embed.add_field(name="User Limit", value=user_limit, inline=True)
-    return embed
+    return view, embed
 
 
 class CreatorSelectMenu(Select):
@@ -227,22 +247,8 @@ class CreatorSelectMenu(Select):
         selected_channel = self.bot.get_channel(selected_channel_id)
 
         # Create an embed with channel information
-        embed = createChannelEditEmbed(self.database, selected_channel)
-
-        # Create menu with channel hubs
-        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
-        channels = [self.bot.get_channel(channel_id) for channel_id in channel_ids]
-
-        # Update the view to channel editor
-        view = CreatorSelectView(
-            modify_button=True,
-            back_button=True,
-            config=config,
-            database=self.database,
-            bot=self.bot
-        )
+        view, embed = create_channel_edit_menu(self.database, self.bot, selected_channel)
         view.selected_channel_id = int(self.values[0])
-
         await interaction.response.edit_message(embed=embed, view=view)
 
 
@@ -280,17 +286,7 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
         self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
 
         # Create an embed with channel information
-        embed = createChannelEditEmbed(self.database, channel)
-
-        # Update the view to channel editor
-        view = CreatorSelectView(
-            modify_button=True,
-            back_button=True,
-            config=config,
-            database=self.database,
-            bot=self.bot
-        )
-
+        view, embed = create_channel_edit_menu(self.database, self.bot, channel)
         await interaction.response.edit_message(embed=embed, view=view)
 
 
@@ -331,21 +327,7 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
         self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
 
         # Create an embed with channel information
-        embed = createChannelEditEmbed(self.database, channel)
-
-        # Create menu with channel hubs
-        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
-        channels = [self.bot.get_channel(channel_id) for channel_id in channel_ids]
-
-        # Update the view to channel editor
-        view = CreatorSelectView(
-            modify_button=True,
-            back_button=True,
-            config=config,
-            database=self.database,
-            bot=self.bot
-        )
-
+        view, embed = create_channel_edit_menu(self.database, self.bot, channel)
         await interaction.response.edit_message(embed=embed, view=view)
 
 
@@ -357,14 +339,13 @@ class CreatorSelectView(View):
             create_button: bool = False,
             website_button: bool = False,
             back_button: bool = False,
-            config=None,
-            modify_button=False,
+            modify_button: bool = False,
+            delete_button: bool = False,
             database: Database = None,
             bot: commands.Bot = None,
             selected_channel_id: int = None
     ):
         super().__init__()
-        self.config = config
         self.selected_channel_id = selected_channel_id
         self.database = database
         self.bot = bot
@@ -386,6 +367,14 @@ class CreatorSelectView(View):
                 style=discord.ButtonStyle.success
             )
             button.callback = self.create_button_callback
+            self.add_item(button)
+
+        if delete_button:
+            button = discord.ui.Button(
+                label="Delete",
+                style=discord.ButtonStyle.danger
+            )
+            button.callback = self.delete_creator_button_callback
             self.add_item(button)
 
         if website_button and config:
@@ -410,20 +399,8 @@ class CreatorSelectView(View):
 
     async def back_button_callback(self, interaction: discord.Interaction):
         """Callback for the 'Back' button."""
-        # Update the menu with channel hubs
-        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
-        channels = [self.bot.get_channel(cid) for cid in channel_ids]
-        view = CreatorSelectView(
-            menu_channels=channels,
-            create_button=True,
-            website_button=True,
-            config=self.config,
-            database=self.database,
-            bot=self.bot
-        )
-
         # Create an embed with options
-        embed = createMenuEmbed(self.database, channels)
+        embed, view = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
 
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -433,13 +410,26 @@ class CreatorSelectView(View):
         modal = EditCreatorModal(self.bot, self.database, selected_channel)
         await interaction.response.send_modal(modal)
 
+    async def delete_creator_button_callback(self, interaction: discord.Interaction):
+        """Callback for the 'Delete creator' button."""
+
+        # Deletes channel from discord before deleting from db
+        selected_channel = self.bot.get_channel(self.selected_channel_id)
+        guild_id = selected_channel.guild.id
+        channel_id = selected_channel.id
+        await selected_channel.delete()
+        self.database.delete_temp_channel_hub(guild_id, channel_id)
+
+        # Create an embed with options
+        view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
+        await interaction.response.edit_message(embed=embed, view=view)
+
 
 class TempChannelsCommands(commands.Cog):
     """A cog that manages temporary voice channels."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.config = config
         db_path = os.path.join(base_directory, 'temp_channels.db')
         self.database = Database(db_path)
         self.database.connect()
@@ -503,21 +493,8 @@ class TempChannelsCommands(commands.Cog):
             )
             return
 
-        # Create menu with channel hubs
-        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
-        channels = [self.bot.get_channel(channel_id) for channel_id in channel_ids]
-        view = CreatorSelectView(
-            menu_channels=channels,
-            create_button=True,
-            website_button=True,
-            config=self.config,
-            database=self.database,
-            bot=self.bot
-        )
-
         # Create an embed with options
-        embed = createMenuEmbed(self.database, channels)
-
+        view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     def cog_unload(self):
