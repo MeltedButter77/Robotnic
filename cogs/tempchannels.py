@@ -35,6 +35,7 @@ class Database:
                     guild_id INTEGER,
                     channel_id INTEGER,
                     creator_id INTEGER,
+                    owner_id INTEGER,
                     number INTEGER
                 )
             """)
@@ -58,13 +59,20 @@ class Database:
             cursor.execute('SELECT channel_id FROM temp_channel_hubs WHERE guild_id = ?', (guild_id,))
             return [row[0] for row in cursor.fetchall()]
 
+    def get_child_name(self, channel_hub_id: int) -> str:
+        """Retrieve the child name of a temporary channel hub."""
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT child_name FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
+            return cursor.fetchone()[0]
+
     def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int):
         """Add a new temporary channel hub to the database."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
                 'INSERT INTO temp_channel_hubs (guild_id, channel_id, child_name) VALUES (?, ?, ?)',
-                (guild_id, channel_id)
+                (guild_id, channel_id, child_name)
             )
 
     def delete_temp_channel_hub(self, guild_id: int, channel_id: int):
@@ -86,13 +94,13 @@ class Database:
             )
             return [row[0] for row in cursor.fetchall()]
 
-    def add_temp_channel(self, guild_id: int, channel_id: int, creator_id: int, number: int):
+    def add_temp_channel(self, guild_id: int, channel_id: int, creator_id: int, owner_id: int, number: int):
         """Add a new temporary channel to the database."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
-                'INSERT INTO temp_channels (guild_id, channel_id, creator_id, number) VALUES (?, ?, ?, ?)',
-                (guild_id, channel_id, creator_id, number)
+                'INSERT INTO temp_channels (guild_id, channel_id, creator_id, owner_id, number) VALUES (?, ?, ?, ?, ?)',
+                (guild_id, channel_id, creator_id, owner_id, number)
             )
 
     def delete_temp_channel(self, channel_id: int):
@@ -107,6 +115,13 @@ class Database:
             cursor = self.connection.cursor()
             cursor.execute('SELECT 1 FROM temp_channels WHERE channel_id = ?', (channel_id,))
             return cursor.fetchone() is not None
+
+    def get_owner_id(self, temp_channel_id: int) -> int:
+        """Get the owner ID of a temporary channel."""
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT owner_id FROM temp_channels WHERE channel_id = ?', (temp_channel_id,))
+            return cursor.fetchone()[0]
 
 
 def createMenuEmbed(channels):
@@ -252,7 +267,8 @@ class CreatorSelectView(View):
         """Callback for the 'Create new Creator' button."""
         # Create a new voice channel and add it to the database
         channel = await interaction.guild.create_voice_channel(name="➕ Create Channel")
-        self.database.add_temp_channel_hub(interaction.guild.id, channel.id)
+        temp_child_name = "channel {user} {count}"
+        self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name)
 
         # Create an embed with channel information
         embed = createChannelEditEmbed(channel)
@@ -309,22 +325,25 @@ class TempChannelsCommands(commands.Cog):
             # Create temporary channel if member joins a hub channel
             channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
             if after.channel.id in channel_hub_ids:
+
+                child_name = str(self.database.get_child_name(after.channel.id))
+
                 numbers = self.database.get_temp_channel_numbers(member.guild.id, after.channel.id)
-                channel_number = 1
+                count = 1
                 for i, value in enumerate(sorted(numbers)):
                     if value != i + 1:
-                        channel_number = i + 1
+                        count = i + 1
                         break
-                    channel_number = value + 1
+                    count = value + 1
 
-                channel_name = f"Lobby {channel_number}"
+                formatted_child_name = child_name.format(count=count, user=member.display_name)
                 channel = await member.guild.create_voice_channel(
-                    name=channel_name,
+                    name=formatted_child_name,
                     category=after.channel.category
                 )
 
                 self.database.add_temp_channel(
-                    member.guild.id, channel.id, after.channel.id, channel_number
+                    member.guild.id, channel.id, after.channel.id, member.id, count
                 )
                 await member.move_to(channel)
 
