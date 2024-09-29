@@ -43,7 +43,8 @@ class Database:
                 CREATE TABLE IF NOT EXISTS temp_channel_hubs (
                     guild_id INTEGER,
                     channel_id INTEGER,
-                    child_name TEXT
+                    child_name TEXT,
+                    user_limit INTEGER
                 )
             """)
 
@@ -66,13 +67,20 @@ class Database:
             cursor.execute('SELECT child_name FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
             return cursor.fetchone()[0]
 
-    def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int):
+    def get_user_limit(self, channel_hub_id: int) -> str:
+        """Retrieve the child name of a temporary channel hub."""
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT user_limit FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
+            return cursor.fetchone()[0]
+
+    def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int, user_limit: int):
         """Add a new temporary channel hub to the database."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
-                'INSERT INTO temp_channel_hubs (guild_id, channel_id, child_name) VALUES (?, ?, ?)',
-                (guild_id, channel_id, child_name)
+                'INSERT INTO temp_channel_hubs (guild_id, channel_id, child_name, user_limit) VALUES (?, ?, ?, ?)',
+                (guild_id, channel_id, child_name, user_limit)
             )
 
     def delete_temp_channel_hub(self, guild_id: int, channel_id: int):
@@ -124,7 +132,7 @@ class Database:
             return cursor.fetchone()[0]
 
 
-def createMenuEmbed(channels):
+def createMenuEmbed(database, channels):
     embed = discord.Embed(
         title="Setup or Modify Channel Creators",
         description="Customise your channel creators to your specific need.",
@@ -136,15 +144,19 @@ def createMenuEmbed(channels):
         inline=False
     )
     for i, channel in enumerate(channels):
+        child_name = database.get_child_name(channel.id)
+        user_limit = database.get_user_limit(channel.id)
+        if user_limit == 0:
+            user_limit = "Unlimited"
         embed.add_field(
             name=f"#{i + 1}. {channel.mention}",
-            value=f"ID: `{channel.id}`\nChild Channel Names: `Coming Soon`",
-            inline=True
+            value=f"Child Channel Names: `{child_name}`\nUser Limit: `{user_limit}`\n",
+            inline=False
         )
     return embed
 
 
-def createChannelEditEmbed(selected_channel):
+def createChannelEditEmbed(database, selected_channel):
     embed = discord.Embed(
         title=f"#{selected_channel.name}",
         description="",
@@ -155,6 +167,12 @@ def createChannelEditEmbed(selected_channel):
     embed.add_field(name="ID", value=str(selected_channel.id), inline=True)
     category = f"<#{selected_channel.category_id}>" if selected_channel.category_id else "None"
     embed.add_field(name="Category", value=category, inline=True)
+    child_name = database.get_child_name(selected_channel.id)
+    embed.add_field(name="Child Names", value=child_name, inline=True)
+    user_limit = database.get_user_limit(selected_channel.id)
+    if user_limit == 0:
+        user_limit = "Unlimited"
+    embed.add_field(name="User Limit", value=user_limit, inline=True)
     return embed
 
 
@@ -169,16 +187,18 @@ class CreatorSelectMenu(Select):
         self.database = database
         self.bot = bot
 
-        options = [
-            discord.SelectOption(
-                label=f"Modify Creator #{i + 1}",
-                description=f"{channel.name} ({channel.id})",
-                value=str(channel.id),
-                emoji="🔧"
-            ) for i, channel in enumerate(channels)
-        ]
+        options = []
+        if channels is not None:
+            for i, channel in enumerate(channels):
+                options.append(
+                discord.SelectOption(
+                    label=f"Modify Creator #{i + 1}",
+                    description=f"{channel.name} ({channel.id})",
+                    value=str(channel.id),
+                    emoji="🔧"
+                ))
 
-        if not options:
+        if len(options) <= 0:
             options = [
                 discord.SelectOption(label="None", value="None", emoji="🔧")
             ]
@@ -207,10 +227,119 @@ class CreatorSelectMenu(Select):
         selected_channel = self.bot.get_channel(selected_channel_id)
 
         # Create an embed with channel information
-        embed = createChannelEditEmbed(selected_channel)
+        embed = createChannelEditEmbed(self.database, selected_channel)
+
+        # Create menu with channel hubs
+        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
+        channels = [self.bot.get_channel(channel_id) for channel_id in channel_ids]
 
         # Update the view to channel editor
         view = CreatorSelectView(
+            modify_button=True,
+            back_button=True,
+            config=config,
+            database=self.database,
+            bot=self.bot
+        )
+        view.selected_channel_id = int(self.values[0])
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
+    def __init__(self, bot: commands.Bot, database: Database):
+        super().__init__()
+        self.bot = bot
+        self.database = database
+
+    # Define the text inputs
+    child_name = discord.ui.TextInput(
+        label="Channel Names (Variables: {user}, {count})",
+        placeholder="Default: {user}'s Channel",
+        required=False,
+        max_length=25
+    )
+    user_limit = discord.ui.TextInput(
+        label="User Limit (Unlimited = 0)",
+        placeholder="Default: 0",
+        required=False,
+        max_length=3
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Create a new voice channel and add it to the database
+        channel = await interaction.guild.create_voice_channel(name="➕ Create Channel")
+        temp_child_name = interaction.data["components"][0]["components"][0]["value"]
+        if temp_child_name == "":
+            temp_child_name = "{user}'s Channel"
+        user_limit = interaction.data["components"][1]["components"][0]["value"]
+        if user_limit == "":
+            user_limit = 0
+        else:
+            user_limit = int(user_limit)
+        self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
+
+        # Create an embed with channel information
+        embed = createChannelEditEmbed(self.database, channel)
+
+        # Update the view to channel editor
+        view = CreatorSelectView(
+            modify_button=True,
+            back_button=True,
+            config=config,
+            database=self.database,
+            bot=self.bot
+        )
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
+    def __init__(self, bot: commands.Bot, database: Database, edit_channel):
+        super().__init__()
+        self.bot = bot
+        self.database = database
+        self.edit_channel = edit_channel
+
+    # Define the text inputs
+    child_name = discord.ui.TextInput(
+        label="Channel Names (Variables: {user}, {count})",
+        placeholder="Default: {user}'s Channel",
+        required=False,
+        max_length=25
+    )
+    user_limit = discord.ui.TextInput(
+        label="User Limit (Unlimited = 0)",
+        placeholder="Default: 0",
+        required=False,
+        max_length=3
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Create a new voice channel and add it to the database
+        temp_child_name = interaction.data["components"][0]["components"][0]["value"]
+        if temp_child_name == "":
+            temp_child_name = "{user}'s Channel"
+        user_limit = interaction.data["components"][1]["components"][0]["value"]
+        if user_limit == "":
+            user_limit = 0
+        else:
+            user_limit = int(user_limit)
+
+        channel = self.edit_channel
+        self.database.delete_temp_channel_hub(interaction.guild.id, channel.id)
+        self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
+
+        # Create an embed with channel information
+        embed = createChannelEditEmbed(self.database, channel)
+
+        # Create menu with channel hubs
+        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
+        channels = [self.bot.get_channel(channel_id) for channel_id in channel_ids]
+
+        # Update the view to channel editor
+        view = CreatorSelectView(
+            modify_button=True,
             back_button=True,
             config=config,
             database=self.database,
@@ -229,16 +358,27 @@ class CreatorSelectView(View):
             website_button: bool = False,
             back_button: bool = False,
             config=None,
+            modify_button=False,
             database: Database = None,
-            bot: commands.Bot = None
+            bot: commands.Bot = None,
+            selected_channel_id: int = None
     ):
         super().__init__()
         self.config = config
+        self.selected_channel_id = selected_channel_id
         self.database = database
         self.bot = bot
 
         if menu_channels:
             self.add_item(CreatorSelectMenu(menu_channels, database=database, bot=bot))
+
+        if modify_button:
+            button = discord.ui.Button(
+                label="Modify",
+                style=discord.ButtonStyle.success
+            )
+            button.callback = self.modify_button_callback
+            self.add_item(button)
 
         if create_button:
             button = discord.ui.Button(
@@ -265,23 +405,8 @@ class CreatorSelectView(View):
 
     async def create_button_callback(self, interaction: discord.Interaction):
         """Callback for the 'Create new Creator' button."""
-        # Create a new voice channel and add it to the database
-        channel = await interaction.guild.create_voice_channel(name="➕ Create Channel")
-        temp_child_name = "channel {user} {count}"
-        self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name)
-
-        # Create an embed with channel information
-        embed = createChannelEditEmbed(channel)
-
-        # Update the view to channel editor
-        view = CreatorSelectView(
-            back_button=True,
-            config=config,
-            database=self.database,
-            bot=self.bot
-        )
-
-        await interaction.response.edit_message(embed=embed, view=view)
+        modal = CreateCreatorModal(self.bot, self.database)
+        await interaction.response.send_modal(modal)
 
     async def back_button_callback(self, interaction: discord.Interaction):
         """Callback for the 'Back' button."""
@@ -298,9 +423,15 @@ class CreatorSelectView(View):
         )
 
         # Create an embed with options
-        embed = createMenuEmbed(channels)
+        embed = createMenuEmbed(self.database, channels)
 
         await interaction.response.edit_message(embed=embed, view=view)
+
+    async def modify_button_callback(self, interaction: discord.Interaction):
+        """Callback for the 'Modify existing creators' button."""
+        selected_channel = self.bot.get_channel(self.selected_channel_id)
+        modal = EditCreatorModal(self.bot, self.database, selected_channel)
+        await interaction.response.send_modal(modal)
 
 
 class TempChannelsCommands(commands.Cog):
@@ -337,9 +468,13 @@ class TempChannelsCommands(commands.Cog):
                     count = value + 1
 
                 formatted_child_name = child_name.format(count=count, user=member.display_name)
+                user_limit = self.database.get_user_limit(after.channel.id)
+                if user_limit is None:
+                    user_limit = 0
                 channel = await member.guild.create_voice_channel(
                     name=formatted_child_name,
-                    category=after.channel.category
+                    category=after.channel.category,
+                    user_limit=user_limit,
                 )
 
                 self.database.add_temp_channel(
@@ -381,7 +516,7 @@ class TempChannelsCommands(commands.Cog):
         )
 
         # Create an embed with options
-        embed = createMenuEmbed(channels)
+        embed = createMenuEmbed(self.database, channels)
 
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
