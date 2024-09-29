@@ -291,11 +291,11 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
 
 
 class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
-    def __init__(self, bot: commands.Bot, database: Database, edit_channel):
+    def __init__(self, bot: commands.Bot, database: Database, selected_channel):
         super().__init__()
         self.bot = bot
         self.database = database
-        self.edit_channel = edit_channel
+        self.selected_channel = selected_channel
 
     # Define the text inputs
     child_name = discord.ui.TextInput(
@@ -322,12 +322,12 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
         else:
             user_limit = int(user_limit)
 
-        channel = self.edit_channel
-        self.database.delete_temp_channel_hub(interaction.guild.id, channel.id)
-        self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
+        self.database.delete_temp_channel_hub(interaction.guild.id, self.selected_channel.id)
+        self.database.add_temp_channel_hub(interaction.guild.id, self.selected_channel.id, temp_child_name, user_limit)
 
         # Create an embed with channel information
-        view, embed = create_channel_edit_menu(self.database, self.bot, channel)
+        view, embed = create_channel_edit_menu(self.database, self.bot, self.selected_channel)
+        view.selected_channel_id = int(self.selected_channel.id)
         await interaction.response.edit_message(embed=embed, view=view)
 
 
@@ -400,8 +400,7 @@ class CreatorSelectView(View):
     async def back_button_callback(self, interaction: discord.Interaction):
         """Callback for the 'Back' button."""
         # Create an embed with options
-        embed, view = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
-
+        view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
         await interaction.response.edit_message(embed=embed, view=view)
 
     async def modify_button_callback(self, interaction: discord.Interaction):
