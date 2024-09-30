@@ -1,5 +1,6 @@
 from discord import app_commands
 from error_handling import handle_permission_error, handle_command_error, handle_global_error
+from cogs.controltempchannels import create_control_menu
 import sqlite3
 from typing import List
 import discord
@@ -509,6 +510,11 @@ class TempChannelsCog(commands.Cog):
                         member.guild.id, channel.id, after.channel.id, member.id, count
                     )
                     await member.move_to(channel)
+
+                    # TODO: Check settings to see if in-channel control is enabled
+                    await create_control_menu(self.bot, channel=channel)
+                    message = await channel.send(f"Welcome to your new channel, {member.mention}!")
+                    await message.delete()
 
             if before.channel:
                 # Delete temporary channel if empty
