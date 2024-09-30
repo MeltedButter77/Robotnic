@@ -34,6 +34,7 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
         # Load cogs/extensions
         await self.load_extension("cogs.utils")
         await self.load_extension("cogs.tempchannels")
+        await self.load_extension("cogs.controltempchannels")
         print("Loaded extensions successfully!")
 
     async def send_notification(self):
