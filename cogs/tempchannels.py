@@ -1,13 +1,15 @@
+import aiosqlite
+
+from error_handling import handle_command_error, handle_global_error
 import sqlite3
-from typing import List
+from typing import List, Tuple
 import discord
 from discord.ext import commands
 from discord.ui import Select, View
 import json
 import os
 
-# Get the absolute path to the config.json
-base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # One level up
+base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
 config_path = os.path.join(base_directory, 'config.json')
 # Load the configuration from config.json
 with open(config_path) as config_file:
@@ -65,14 +67,16 @@ class Database:
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute('SELECT child_name FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
-            return cursor.fetchone()[0]
+            row = cursor.fetchone()
+            return row[0] if row else None
 
     def get_user_limit(self, channel_hub_id: int) -> str:
         """Retrieve the child name of a temporary channel hub."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute('SELECT user_limit FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
-            return cursor.fetchone()[0]
+            row = cursor.fetchone()
+            return row[0] if row else None
 
     def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int, user_limit: int):
         """Add a new temporary channel hub to the database."""
@@ -92,23 +96,23 @@ class Database:
                 (guild_id, channel_id)
             )
 
-    def get_temp_channel_numbers(self, guild_id: int, creator_id: int) -> List[int]:
+    def get_temp_channel_numbers(self, guild_id: int, creator_channel_id: int) -> List[int]:
         """Get all temporary channel numbers for a guild and creator."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
                 'SELECT number FROM temp_channels WHERE guild_id = ? AND creator_id = ?',
-                (guild_id, creator_id)
+                (guild_id, creator_channel_id)
             )
             return [row[0] for row in cursor.fetchall()]
 
-    def add_temp_channel(self, guild_id: int, channel_id: int, creator_id: int, owner_id: int, number: int):
+    def add_temp_channel(self, guild_id: int, channel_id: int, creator_channel_id: int, owner_id: int, number: int):
         """Add a new temporary channel to the database."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
                 'INSERT INTO temp_channels (guild_id, channel_id, creator_id, owner_id, number) VALUES (?, ?, ?, ?, ?)',
-                (guild_id, channel_id, creator_id, owner_id, number)
+                (guild_id, channel_id, creator_channel_id, owner_id, number)
             )
 
     def delete_temp_channel(self, channel_id: int):
@@ -129,13 +133,21 @@ class Database:
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute('SELECT owner_id FROM temp_channels WHERE channel_id = ?', (temp_channel_id,))
-            return cursor.fetchone()[0]
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+
+def create_embed(title: str, description: str, fields: List[Tuple[str, str]], color=0x00ff00) -> discord.Embed:
+    embed = discord.Embed(title=title, description=description, color=color)
+    for name, value in fields:
+        embed.add_field(name=name, value=value, inline=False)
+    return embed
 
 
 def create_channel_select_menu(database, bot, guild_id):
     # Create menu with channel hubs
     channel_ids = database.get_temp_channel_hubs(guild_id)
-    channels = [bot.get_channel(channel_id) for channel_id in channel_ids]
+    channels = [channel for channel_id in channel_ids if (channel := bot.get_channel(channel_id)) is not None]
     view = CreatorSelectView(
         menu_channels=channels,
         create_button=True,
@@ -424,7 +436,7 @@ class CreatorSelectView(View):
         await interaction.response.edit_message(embed=embed, view=view)
 
 
-class TempChannelsCommands(commands.Cog):
+class TempChannelsCog(commands.Cog):
     """A cog that manages temporary voice channels."""
 
     def __init__(self, bot: commands.Bot):
@@ -436,65 +448,71 @@ class TempChannelsCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
         """Listener to handle deletion of channel hubs."""
-        self.database.delete_temp_channel_hub(channel.guild.id, channel.id)
+        try:
+            self.database.delete_temp_channel_hub(channel.guild.id, channel.id)
+        except Exception as error:
+            print(f"Error in on_guild_channel_delete: {error}")
+            await handle_global_error("on_guild_channel_delete")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         """Listener to handle creation and deletion of temporary channels."""
-        if after.channel:
-            # Create temporary channel if member joins a hub channel
-            channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
-            if after.channel.id in channel_hub_ids:
+        try:
+            if after.channel:
+                # Create temporary channel if member joins a hub channel
+                channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
+                if after.channel.id in channel_hub_ids:
 
-                child_name = str(self.database.get_child_name(after.channel.id))
+                    child_name = str(self.database.get_child_name(after.channel.id))
 
-                numbers = self.database.get_temp_channel_numbers(member.guild.id, after.channel.id)
-                count = 1
-                for i, value in enumerate(sorted(numbers)):
-                    if value != i + 1:
-                        count = i + 1
-                        break
-                    count = value + 1
+                    numbers = set(self.database.get_temp_channel_numbers(member.guild.id, after.channel.id))
+                    count = 1
+                    while count in numbers:
+                        count += 1
 
-                formatted_child_name = child_name.format(count=count, user=member.display_name)
-                user_limit = self.database.get_user_limit(after.channel.id)
-                if user_limit is None:
-                    user_limit = 0
-                channel = await member.guild.create_voice_channel(
-                    name=formatted_child_name,
-                    category=after.channel.category,
-                    user_limit=user_limit,
-                )
+                    formatted_child_name = child_name.format(count=count, user=member.display_name)
+                    user_limit = self.database.get_user_limit(after.channel.id)
+                    if user_limit is None:
+                        user_limit = 0
+                    channel = await member.guild.create_voice_channel(
+                        name=formatted_child_name,
+                        category=after.channel.category,
+                        user_limit=user_limit,
+                    )
 
-                self.database.add_temp_channel(
-                    member.guild.id, channel.id, after.channel.id, member.id, count
-                )
-                await member.move_to(channel)
+                    self.database.add_temp_channel(
+                        member.guild.id, channel.id, after.channel.id, member.id, count
+                    )
+                    await member.move_to(channel)
 
-        if before.channel:
-            # Delete temporary channel if empty
-            if self.database.is_temp_channel(before.channel.id) and len(before.channel.members) == 0:
-                left_channel = self.bot.get_channel(before.channel.id)
-                if left_channel:
-                    await left_channel.delete()
-                self.database.delete_temp_channel(before.channel.id)
+            if before.channel:
+                # Delete temporary channel if empty
+                if self.database.is_temp_channel(before.channel.id) and len(before.channel.members) == 0:
+                    left_channel = self.bot.get_channel(before.channel.id)
+                    if left_channel:
+                        await left_channel.delete()
+                    self.database.delete_temp_channel(before.channel.id)
+        except Exception as error:
+            print(f"Error in on_voice_state_update: {error}")
+            await handle_global_error("on_voice_state_update")
 
     @discord.app_commands.command(
         name="setup_creators",
         description="Create and edit Channel Hubs."
     )
+    @discord.app_commands.checks.has_permissions(manage_channels=True)
     async def setup_creators(self, interaction: discord.Interaction):
         """Command to set up channel creators."""
-        if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
-                f"Sorry {interaction.user.mention}, you require the `manage_channels` permission to use that command.",
-                ephemeral=True
-            )
-            return
+        try:
+            # Create an embed with options
+            view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        except Exception as error:
+            await handle_command_error(interaction, error)
 
-        # Create an embed with options
-        view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    @setup_creators.error
+    async def setup_creators_error(self, interaction: discord.Interaction, error):
+        await handle_command_error(interaction, error)
 
     def cog_unload(self):
         """Cleanup when the cog is unloaded."""
@@ -503,4 +521,4 @@ class TempChannelsCommands(commands.Cog):
 
 async def setup(bot: commands.Bot):
     """Setup function to add the cog to the bot."""
-    await bot.add_cog(TempChannelsCommands(bot))
+    await bot.add_cog(TempChannelsCog(bot))

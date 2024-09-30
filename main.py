@@ -7,38 +7,48 @@ import os
 load_dotenv()
 token = str(os.getenv("TOKEN"))
 
-# Load the token from config.json
-with open('config.json') as config_file:
+# Load the configuration from config.json
+base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
+config_path = os.path.join(base_directory, 'config.json')
+# Load the configuration from config.json
+with open(config_path) as config_file:
     config = json.load(config_file)
 
 # Define the intents
 intents = discord.Intents.default()
 intents.message_content = True
 
-# Create a bot instance
-bot = commands.Bot(intents=intents, command_prefix="/") # replace Bot with AutoShardedBot when over 2500 servers
+class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
+    def __init__(self):
+        super().__init__(command_prefix='/', intents=intents)
 
-@bot.event
-async def on_ready():
-    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    async def on_ready(self):
+        print(f'Logged in as {self.user} (ID: {self.user.id})')
 
-    # Sets Status
-    await bot.change_presence(activity=discord.Game(name="on Discord"))
+        await self.change_presence(activity=discord.Game(name="on Discord"))
+        await self.setup_cogs()
+        await self.send_notification()
 
-    # Loads commands from the extensions
-    await bot.load_extension("cogs.utils")
-    await bot.load_extension("cogs.tempchannels")
-    print("Loaded extensions successfully!")
+    async def setup_cogs(self):
+        # Load cogs/extensions
+        await self.load_extension("cogs.utils")
+        await self.load_extension("cogs.tempchannels")
+        print("Loaded extensions successfully!")
 
-    if bot.user.id == 853490879753617458:
-        notification_channel_id = int(config["sync_channel_id"])
-    else:
-        notification_channel_id = int(config["testing_sync_channel_id"])
-    notification_channel = bot.get_channel(notification_channel_id)
-    await notification_channel.send('Syncing...')
-    synced_commands = await bot.tree.sync()
-    await notification_channel.send(f'Synced {len(synced_commands)} commands!')
-    print("Synced the commands")
+    async def send_notification(self):
+        # Channel notification for syncing
+        if self.user.id == 853490879753617458:
+            notification_channel = self.get_channel(int(config["sync_channel_id"]))
+        else:
+            notification_channel = self.get_channel(int(config["testing_sync_channel_id"]))
+        if notification_channel is not None:
+            await notification_channel.send('Syncing...')
+            synced_commands = await self.tree.sync()
+            await notification_channel.send(f'Synced {len(synced_commands)} commands!')
+        print("Synced the commands")
+
+# Create the bot instance
+bot = Bot()
 
 # Run the bot
 bot.run(token)
