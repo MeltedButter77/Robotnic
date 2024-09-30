@@ -18,6 +18,7 @@ with open(config_path) as config_file:
 intents = discord.Intents.default()
 intents.message_content = True
 
+
 class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
     def __init__(self):
         super().__init__(command_prefix='/', intents=intents)

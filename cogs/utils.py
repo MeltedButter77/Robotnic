@@ -9,7 +9,7 @@ config_path = os.path.join(base_directory, 'config.json')
 with open(config_path) as config_file:
     config = json.load(config_file)
 
-class UtilCommands(commands.Cog):
+class UtilCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -20,4 +20,4 @@ class UtilCommands(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(UtilCommands(bot))
+    await bot.add_cog(UtilCog(bot))

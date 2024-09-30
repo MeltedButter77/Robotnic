@@ -1,3 +1,5 @@
+from dataclasses import fields
+
 import discord
 import traceback
 from discord.ext import commands
@@ -11,6 +13,40 @@ config_path = os.path.join(base_directory, 'config.json')
 with open(config_path) as config_file:
     config = json.load(config_file)
 
+
+async def handle_permission_error(permission: str, interaction=None, user=None, channel: discord.abc.GuildChannel = None):
+    """Handles permission errors for command interactions."""
+    if interaction:
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+
+    embed = discord.Embed(
+        title="Bot Permission Error",
+        description=f"Please contact the server administrators. If you believe this is an error, please report this issue below.",
+        color=discord.Color.red()
+    )
+    embed.add_field(
+        name="Required Permissions:",
+        value=f"`{permission}`",
+        inline=False
+    )
+    view = discord.ui.View()
+    view.add_item(
+        discord.ui.Button(style=discord.ButtonStyle.url, label="Report an issue", url=f"{config['support_server']}"))
+
+    if interaction:
+        await interaction.followup.send(
+            f"Sorry {interaction.user.mention}, I need more permissions.",
+            embed=embed,
+            view=view,
+            ephemeral=True
+        )
+    else:
+        await channel.send(
+            f"Sorry {user.mention}, I need more permissions.",
+            embed=embed,
+            view=view,
+        )
 
 async def handle_command_error(interaction: discord.Interaction, error: Exception):
     """Handles errors for command interactions."""

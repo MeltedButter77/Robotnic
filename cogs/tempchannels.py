@@ -1,13 +1,15 @@
-import aiosqlite
-
-from error_handling import handle_command_error, handle_global_error
+from error_handling import handle_permission_error, handle_command_error, handle_global_error
 import sqlite3
-from typing import List, Tuple
+from typing import List
 import discord
 from discord.ext import commands
 from discord.ui import Select, View
 import json
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
 config_path = os.path.join(base_directory, 'config.json')
@@ -137,13 +139,6 @@ class Database:
             return row[0] if row else None
 
 
-def create_embed(title: str, description: str, fields: List[Tuple[str, str]], color=0x00ff00) -> discord.Embed:
-    embed = discord.Embed(title=title, description=description, color=color)
-    for name, value in fields:
-        embed.add_field(name=name, value=value, inline=False)
-    return embed
-
-
 def create_channel_select_menu(database, bot, guild_id):
     # Create menu with channel hubs
     channel_ids = database.get_temp_channel_hubs(guild_id)
@@ -161,11 +156,18 @@ def create_channel_select_menu(database, bot, guild_id):
         description="Customise your channel creators to your specific need.",
         color=0x00ff00
     )
-    embed.add_field(
-        name="Current Creators:",
-        value="",
-        inline=False
-    )
+    if not channels:
+        embed.add_field(
+            name="No Current Creators",
+            value="There are no channel creators set up.",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Current Creators:",
+            value="",
+            inline=False
+        )
     for i, channel in enumerate(channels):
         child_name = database.get_child_name(channel.id)
         user_limit = database.get_user_limit(channel.id)
@@ -286,7 +288,14 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
 
     async def on_submit(self, interaction: discord.Interaction):
         # Create a new voice channel and add it to the database
-        channel = await interaction.guild.create_voice_channel(name="➕ Create Channel")
+        try:
+            channel = await interaction.guild.create_voice_channel(name="➕ Create Channel")
+        except discord.Forbidden:
+            await handle_permission_error("manage_channels", interaction)
+            return
+        except Exception as e:
+            await handle_global_error("on_creator_modal_submit", e)
+            return
         temp_child_name = interaction.data["components"][0]["components"][0]["value"]
         if temp_child_name == "":
             temp_child_name = "{user}'s Channel"
@@ -428,7 +437,14 @@ class CreatorSelectView(View):
         selected_channel = self.bot.get_channel(self.selected_channel_id)
         guild_id = selected_channel.guild.id
         channel_id = selected_channel.id
-        await selected_channel.delete()
+        try:
+            await selected_channel.delete()
+        except discord.Forbidden:
+            await handle_permission_error("manage_channels", interaction)
+            return
+        except Exception as e:
+            await handle_global_error("on_voice_state_update", e)
+            return
         self.database.delete_temp_channel_hub(guild_id, channel_id)
 
         # Create an embed with options
@@ -474,11 +490,19 @@ class TempChannelsCog(commands.Cog):
                     user_limit = self.database.get_user_limit(after.channel.id)
                     if user_limit is None:
                         user_limit = 0
-                    channel = await member.guild.create_voice_channel(
-                        name=formatted_child_name,
-                        category=after.channel.category,
-                        user_limit=user_limit,
-                    )
+                    # Create channel and check for permissions
+                    try:
+                        channel = await member.guild.create_voice_channel(
+                            name=formatted_child_name,
+                            category=after.channel.category,
+                            user_limit=user_limit,
+                        )
+                    except discord.Forbidden:
+                        await handle_permission_error("manage_channels", user=member, channel=after.channel)
+                        return
+                    except Exception as e:
+                        await handle_global_error("on_voice_state_update", e)
+                        return
 
                     self.database.add_temp_channel(
                         member.guild.id, channel.id, after.channel.id, member.id, count
@@ -490,7 +514,14 @@ class TempChannelsCog(commands.Cog):
                 if self.database.is_temp_channel(before.channel.id) and len(before.channel.members) == 0:
                     left_channel = self.bot.get_channel(before.channel.id)
                     if left_channel:
-                        await left_channel.delete()
+                        try:
+                            await left_channel.delete()
+                        except discord.Forbidden:
+                            await handle_permission_error("manage_channels", user=member, channel=before.channel)
+                            pass
+                        except Exception as e:
+                            await handle_global_error("on_voice_state_update", e)
+                            pass
                     self.database.delete_temp_channel(before.channel.id)
         except Exception as error:
             print(f"Error in on_voice_state_update: {error}")
