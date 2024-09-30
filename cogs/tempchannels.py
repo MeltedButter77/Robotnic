@@ -1,3 +1,4 @@
+from discord import app_commands
 from error_handling import handle_permission_error, handle_command_error, handle_global_error
 import sqlite3
 from typing import List
@@ -543,7 +544,10 @@ class TempChannelsCog(commands.Cog):
 
     @setup_creators.error
     async def setup_creators_error(self, interaction: discord.Interaction, error):
-        await handle_command_error(interaction, error)
+        if isinstance(error, app_commands.MissingPermissions):
+            await handle_permission_error("manage_channels", interaction)
+        else:
+            await handle_command_error(interaction, error)
 
     def cog_unload(self):
         """Cleanup when the cog is unloaded."""
