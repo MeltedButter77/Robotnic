@@ -34,8 +34,12 @@ class Database:
 
     def _ensure_tables(self):
         """Create necessary tables if they do not exist."""
+        if self.connection is None:
+            raise Exception("No database connection. Please connect to a database before ensuring tables.")
+
         with self.connection:
             cursor = self.connection.cursor()
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS temp_channels (
                     guild_id INTEGER,
@@ -53,6 +57,38 @@ class Database:
                     user_limit INTEGER
                 )
             """)
+
+            # List of any new collumns since the first db was made
+            table_definitions = {
+                'temp_channels': {
+                    'creator_id': ('INTEGER', 0),
+                    'owner_id': ('INTEGER', 0),
+                    'number': ('INTEGER', 1)
+                },
+                'temp_channel_hubs': {
+                    'child_name': ('TEXT', "{user}'s Channel"),
+                    'user_limit': ('INTEGER', 0)
+                }
+            }
+
+            # Iterate through tables and ensure columns exist
+            for table_name, expected_columns in table_definitions.items():
+                # Fetch current columns for the table
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                current_columns_info = cursor.fetchall()
+                current_column_names = {col_info[1] for col_info in current_columns_info}
+
+                # Add missing columns
+                for column_name, (column_type, default_value) in expected_columns.items():
+                    if column_name not in current_column_names:
+                        print(f"Column {column_name} not found in {table_name}, adding it.")
+                        cursor.execute(f"""
+                            ALTER TABLE {table_name}
+                            ADD COLUMN {column_name} {column_type} DEFAULT {default_value}
+                        """)
+
+                # Commit the changes
+                self.connection.commit()
 
     def close(self):
         """Close the database connection."""
