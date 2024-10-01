@@ -1,7 +1,7 @@
 from discord import app_commands
 import databasecontrol
 from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, handle_user_permission_error
-from cogs.controltempchannels import create_control_menu
+from cogs.tempchannels.control import create_control_menu
 from typing import List
 import discord
 from discord.ext import commands
