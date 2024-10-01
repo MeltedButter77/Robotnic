@@ -1,9 +1,7 @@
 import time
 import asyncio
 from logging import disable
-
 from discord import app_commands
-
 import databasecontrol
 from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
     handle_user_permission_error
@@ -20,11 +18,12 @@ with open(config_path) as config_file:
     config = json.load(config_file)
 
 
-async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel):
+async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel, last_followup_message=None):
     view = CreateControlView(
         database=database,
         bot=bot,
         channel=channel,
+        last_followup_message=last_followup_message,
     )
 
     embed = discord.Embed(
@@ -43,10 +42,11 @@ async def create_control_menu(bot: commands.Bot, database: databasecontrol.Datab
 class CreateControlView(View):
     """A view containing buttons and menus for managing channel creators."""
 
-    def __init__(self, database, bot: commands.Bot, channel):
+    def __init__(self, database, bot: commands.Bot, channel, last_followup_message):
         super().__init__()
         self.bot = bot
         self.database = database
+        self.last_followup_message = last_followup_message
 
         # 0 = public, 1 = locked, 2 = hidden
         channel_state = self.database.get_channel_state(channel.guild.id, channel.id)
@@ -109,9 +109,15 @@ class CreateControlView(View):
             new_state=1
         )
 
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel)
+        if self.last_followup_message:
+            try:
+                await self.last_followup_message.delete()
+            except discord.NotFound:
+                pass  # Message was already deleted
+        new_followup_message = await interaction.followup.send(f"Locked", ephemeral=True)
+
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
         await interaction.message.edit(embed=embed, view=view)
-        await interaction.followup.send(f"Locked", ephemeral=True)
 
     async def hide_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -127,9 +133,15 @@ class CreateControlView(View):
             new_state=2
         )
 
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel)
+        if self.last_followup_message:
+            try:
+                await self.last_followup_message.delete()
+            except discord.NotFound:
+                pass  # Message was already deleted
+        new_followup_message = await interaction.followup.send(f"Hidden", ephemeral=True)
+
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
         await interaction.message.edit(embed=embed, view=view)
-        await interaction.followup.send(f"Hidden", ephemeral=True)
 
     async def public_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -146,15 +158,22 @@ class CreateControlView(View):
             new_state=0
         )
 
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel)
+        if self.last_followup_message:
+            try:
+                await self.last_followup_message.delete()
+            except discord.NotFound:
+                pass  # Message was already deleted
+        new_followup_message = await interaction.followup.send(f"Global", ephemeral=True)
+
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
         await interaction.message.edit(embed=embed, view=view)
-        await interaction.followup.send(f"Global", ephemeral=True)
 
 
 class ControlTempChannelsCog(commands.Cog):
     def __init__(self, bot: commands.Bot, database):
         self.bot = bot
         self.database = database
+        self.last_followup_message = None
 
     @discord.app_commands.command(name="control", description="Control your temp channel")
     @discord.app_commands.checks.has_permissions(manage_channels=True)
