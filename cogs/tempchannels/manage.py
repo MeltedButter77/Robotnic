@@ -390,9 +390,16 @@ class TempChannelsCog(commands.Cog):
 
                     # This will be toggleable in the future via a config option for channel creators
                     # Create an embed with options within the channel
-                    view, embed = await create_control_menu(self.bot, self.database, channel)
-                    message = await channel.send(f"Welcome to your new channel, {member.mention}!", embed=embed, view=view)
-                    await message.edit(content='', embed=embed, view=view)
+                    try:
+                        view, embed = await create_control_menu(self.bot, self.database, channel)
+                        message = await channel.send(f"Welcome to your new channel, {member.mention}!", embed=embed, view=view)
+                        await message.edit(content='', embed=embed, view=view)
+                    except discord.Forbidden:
+                        await handle_bot_permission_error("manage_channels", user=member, channel=channel)
+                        pass
+                    except Exception as e:
+                        await handle_global_error("on_voice_state_update", e)
+                        pass
 
             if before.channel:
                 # Delete temporary channel if empty
