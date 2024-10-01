@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
+import databasecontrol
 
 load_dotenv()
 token = str(os.getenv("TOKEN"))
@@ -30,11 +31,19 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
         await self.setup_cogs()
         await self.send_notification()
 
+    async def load_extension_with_args(self, cog_name, *args):
+        cog = __import__(cog_name, fromlist=['setup'])
+        await cog.setup(self, *args)
+
     async def setup_cogs(self):
+        db_path = os.path.join(base_directory, 'temp_channels.db')
+        database = databasecontrol.Database(db_path)
+        database.connect()
+
         # Load cogs/extensions
         await self.load_extension("cogs.utils")
-        await self.load_extension("cogs.tempchannels")
-        await self.load_extension("cogs.controltempchannels")
+        await self.load_extension_with_args("cogs.tempchannels", database)
+        await self.load_extension_with_args("cogs.controltempchannels", database)
         print("Loaded extensions successfully!")
 
     async def send_notification(self):

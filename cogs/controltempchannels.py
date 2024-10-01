@@ -1,5 +1,12 @@
+import time
+import asyncio
+from logging import disable
+
 from discord import app_commands
-from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, handle_user_permission_error
+
+import databasecontrol
+from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
+    handle_user_permission_error
 import json
 import os
 import discord
@@ -13,9 +20,11 @@ with open(config_path) as config_file:
     config = json.load(config_file)
 
 
-async def create_control_menu(bot: commands.Bot, interaction: discord.Interaction = None, channel: discord.abc.GuildChannel = None):
+async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel):
     view = CreateControlView(
-        bot=bot
+        database=database,
+        bot=bot,
+        channel=channel,
     )
 
     embed = discord.Embed(
@@ -28,44 +37,132 @@ async def create_control_menu(bot: commands.Bot, interaction: discord.Interactio
         value="Field Value.",
         inline=False
     )
-    if interaction:
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    elif channel:
-        await channel.send(embed=embed, view=view)
+    return view, embed
 
 
 class CreateControlView(View):
     """A view containing buttons and menus for managing channel creators."""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, database, bot: commands.Bot, channel):
         super().__init__()
         self.bot = bot
+        self.database = database
 
-        button = discord.ui.Button(
-            label="lock",
-            style=discord.ButtonStyle.success
-        )
-        button.callback = self.lock_button_callback
-        self.add_item(button)
+        # 0 = public, 1 = locked, 2 = hidden
+        channel_state = self.database.get_channel_state(channel.guild.id, channel.id)
+
+        if channel_state != 1:
+            lock_button = discord.ui.Button(
+                label="Lock",
+                style=discord.ButtonStyle.primary
+            )
+        else:
+            lock_button = discord.ui.Button(
+                label="Lock",
+                style=discord.ButtonStyle.primary,
+                disabled=True
+            )
+        lock_button.callback = self.lock_button_callback
+
+        if channel_state != 2:
+            hide_button = discord.ui.Button(
+                label="Hide",
+                style=discord.ButtonStyle.primary
+            )
+        else:
+            hide_button = discord.ui.Button(
+                label="Hide",
+                style=discord.ButtonStyle.primary,
+                disabled=True
+            )
+        hide_button.callback = self.hide_button_callback
+
+        if channel_state != 0:
+            public_button = discord.ui.Button(
+                label="Public",
+                style=discord.ButtonStyle.primary
+            )
+        else:
+            public_button = discord.ui.Button(
+                label="Public",
+                style=discord.ButtonStyle.primary,
+                disabled=True
+            )
+        public_button.callback = self.public_button_callback
+
+        self.add_item(public_button)
+        self.add_item(hide_button)
+        self.add_item(lock_button)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
-        # Defer the response to acknowledge the interaction
         await interaction.response.defer()
 
-        # Now send the follow-up message
-        await interaction.followup.send("followup", ephemeral=True)
+        await interaction.channel.set_permissions(
+            interaction.guild.default_role,
+            connect=False,
+            view_channel=True
+        )
+
+        self.database.update_channel_state(
+            guild_id=interaction.channel.guild.id,
+            channel_id=interaction.channel.id,
+            new_state=1
+        )
+
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel)
+        await interaction.message.edit(embed=embed, view=view)
+        await interaction.followup.send(f"Locked", ephemeral=True)
+
+    async def hide_button_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        await interaction.channel.set_permissions(
+            interaction.guild.default_role,
+            view_channel=False
+        )
+
+        self.database.update_channel_state(
+            guild_id=interaction.channel.guild.id,
+            channel_id=interaction.channel.id,
+            new_state=2
+        )
+
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel)
+        await interaction.message.edit(embed=embed, view=view)
+        await interaction.followup.send(f"Hidden", ephemeral=True)
+
+    async def public_button_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        await interaction.channel.set_permissions(
+            interaction.guild.default_role,
+            connect=True,
+            view_channel=True
+        )
+
+        self.database.update_channel_state(
+            guild_id=interaction.channel.guild.id,
+            channel_id=interaction.channel.id,
+            new_state=0
+        )
+
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel)
+        await interaction.message.edit(embed=embed, view=view)
+        await interaction.followup.send(f"Global", ephemeral=True)
 
 
 class ControlTempChannelsCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot, database):
         self.bot = bot
+        self.database = database
 
-    @discord.app_commands.command(name="control", description="Say hello!")
+    @discord.app_commands.command(name="control", description="Control your temp channel")
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     async def control(self, interaction: discord.Interaction):
         try:
             # Create an embed with options
-            await create_control_menu(self.bot, interaction)
+            view, embed = await create_control_menu(self.bot, self.database, temp_channel)
+            await interaction.channel.send(embed=embed, view=view)
         except Exception as error:
             await handle_command_error(interaction, error)
 
@@ -77,7 +174,6 @@ class ControlTempChannelsCog(commands.Cog):
             await handle_command_error(interaction, error)
 
 
-
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot, database):
     """Setup function to add the cog to the bot."""
-    await bot.add_cog(ControlTempChannelsCog(bot))
+    await bot.add_cog(ControlTempChannelsCog(bot, database))
