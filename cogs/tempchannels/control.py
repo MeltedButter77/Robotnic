@@ -1,21 +1,24 @@
-import time
-import asyncio
-from logging import disable
-from discord import app_commands
-import databasecontrol
-from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
-    handle_user_permission_error
 import json
 import os
 import discord
+from discord import app_commands
 from discord.ext import commands
-from discord.ui import Select, View
+from discord.ui import View
+import databasecontrol
+import error_handling
+from enum import Enum
 
 base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
 config_path = os.path.join(base_directory, 'config.json')
 # Load the configuration from config.json
 with open(config_path) as config_file:
     config = json.load(config_file)
+
+
+class ChannelState(Enum):
+    PUBLIC = 0
+    LOCKED = 1
+    HIDDEN = 2
 
 
 async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel, last_followup_message=None):
@@ -27,15 +30,15 @@ async def create_control_menu(bot: commands.Bot, database: databasecontrol.Datab
     )
 
     embed = discord.Embed(
-        title="Title",
-        description="Description.",
+        title="Manage your Temporary Channel",
+        description="",
         color=0x00ff00
     )
-    embed.add_field(
-        name="Field Name",
-        value="Field Value.",
-        inline=False
-    )
+    # embed.add_field(
+    #     name="Field Name",
+    #     value="Field Value.",
+    #     inline=False
+    # )
     return view, embed
 
 
@@ -48,10 +51,9 @@ class CreateControlView(View):
         self.database = database
         self.last_followup_message = last_followup_message
 
-        # 0 = public, 1 = locked, 2 = hidden
         channel_state = self.database.get_channel_state(channel.guild.id, channel.id)
 
-        if channel_state != 1:
+        if channel_state != ChannelState.LOCKED.value:
             lock_button = discord.ui.Button(
                 label="Lock",
                 style=discord.ButtonStyle.primary
@@ -64,7 +66,7 @@ class CreateControlView(View):
             )
         lock_button.callback = self.lock_button_callback
 
-        if channel_state != 2:
+        if channel_state != ChannelState.HIDDEN.value:
             hide_button = discord.ui.Button(
                 label="Hide",
                 style=discord.ButtonStyle.primary
@@ -77,7 +79,7 @@ class CreateControlView(View):
             )
         hide_button.callback = self.hide_button_callback
 
-        if channel_state != 0:
+        if channel_state != ChannelState.PUBLIC.value:
             public_button = discord.ui.Button(
                 label="Public",
                 style=discord.ButtonStyle.primary
@@ -94,79 +96,51 @@ class CreateControlView(View):
         self.add_item(hide_button)
         self.add_item(lock_button)
 
-    async def lock_button_callback(self, interaction: discord.Interaction):
+    async def update_channel(self, interaction, new_state: ChannelState):
         await interaction.response.defer()
 
-        await interaction.channel.set_permissions(
-            interaction.guild.default_role,
-            connect=False,
-            view_channel=True
-        )
+        if new_state == ChannelState.PUBLIC:
+            permissions = {'connect': True, 'view_channel': True}
+            message = "Your channel is now public."
+        elif new_state == ChannelState.LOCKED:
+            permissions = {'connect': False, 'view_channel': True}
+            message = "Your channel is now locked."
+        elif new_state == ChannelState.HIDDEN:
+            permissions = {'view_channel': False}
+            message = "Your channel is now hidden."
+        else:
+            await error_handling.handle_global_error("Unexpected channel state")
 
-        self.database.update_channel_state(
-            guild_id=interaction.channel.guild.id,
-            channel_id=interaction.channel.id,
-            new_state=1
-        )
+        await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
+        self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
 
         if self.last_followup_message:
             try:
                 await self.last_followup_message.delete()
             except discord.NotFound:
-                pass  # Message was already deleted
-        new_followup_message = await interaction.followup.send(f"Locked", ephemeral=True)
+                pass
 
+        new_followup_message = await interaction.followup.send(message, ephemeral=True)
         view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
         await interaction.message.edit(embed=embed, view=view)
+
+    async def lock_button_callback(self, interaction: discord.Interaction):
+        await self.update_channel(
+            interaction,
+            ChannelState.LOCKED,
+        )
 
     async def hide_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
-        await interaction.channel.set_permissions(
-            interaction.guild.default_role,
-            view_channel=False
+        await self.update_channel(
+            interaction,
+            ChannelState.HIDDEN,
         )
-
-        self.database.update_channel_state(
-            guild_id=interaction.channel.guild.id,
-            channel_id=interaction.channel.id,
-            new_state=2
-        )
-
-        if self.last_followup_message:
-            try:
-                await self.last_followup_message.delete()
-            except discord.NotFound:
-                pass  # Message was already deleted
-        new_followup_message = await interaction.followup.send(f"Hidden", ephemeral=True)
-
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
-        await interaction.message.edit(embed=embed, view=view)
 
     async def public_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
-        await interaction.channel.set_permissions(
-            interaction.guild.default_role,
-            connect=True,
-            view_channel=True
+        await self.update_channel(
+            interaction,
+            ChannelState.PUBLIC,
         )
-
-        self.database.update_channel_state(
-            guild_id=interaction.channel.guild.id,
-            channel_id=interaction.channel.id,
-            new_state=0
-        )
-
-        if self.last_followup_message:
-            try:
-                await self.last_followup_message.delete()
-            except discord.NotFound:
-                pass  # Message was already deleted
-        new_followup_message = await interaction.followup.send(f"Global", ephemeral=True)
-
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
-        await interaction.message.edit(embed=embed, view=view)
 
 
 class ControlTempChannelsCog(commands.Cog):
@@ -183,14 +157,14 @@ class ControlTempChannelsCog(commands.Cog):
             view, embed = await create_control_menu(self.bot, self.database, temp_channel)
             await interaction.channel.send(embed=embed, view=view)
         except Exception as error:
-            await handle_command_error(interaction, error)
+            await error_handling.handle_command_error(interaction, error)
 
     @control.error
     async def control_error(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
-            await handle_user_permission_error("manage_channels", interaction)
+            await error_handling.handle_user_permission_error("manage_channels", interaction)
         else:
-            await handle_command_error(interaction, error)
+            await error_handling.handle_command_error(interaction, error)
 
 
 async def setup(bot: commands.Bot, database):
