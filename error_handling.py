@@ -83,6 +83,7 @@ async def handle_bot_permission_error(permission: str, interaction=None, user=No
             view=view,
         )
 
+
 async def handle_command_error(interaction: discord.Interaction, error: Exception):
     """Handles errors for command interactions."""
     embed = discord.Embed(
