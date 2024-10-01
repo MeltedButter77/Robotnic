@@ -1,5 +1,5 @@
 from discord import app_commands
-from error_handling import handle_permission_error, handle_command_error, handle_global_error
+from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, handle_user_permission_error
 import json
 import os
 import discord
@@ -70,9 +70,9 @@ class ControlTempChannelsCog(commands.Cog):
             await handle_command_error(interaction, error)
 
     @control.error
-    async def setup_creators_error(self, interaction: discord.Interaction, error):
+    async def control_error(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
-            await handle_permission_error("manage_channels", interaction)
+            await handle_user_permission_error("manage_channels", interaction)
         else:
             await handle_command_error(interaction, error)
 

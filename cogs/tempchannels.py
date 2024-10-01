@@ -1,5 +1,5 @@
 from discord import app_commands
-from error_handling import handle_permission_error, handle_command_error, handle_global_error
+from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, handle_user_permission_error
 from cogs.controltempchannels import create_control_menu
 import sqlite3
 from typing import List
@@ -293,7 +293,7 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
         try:
             channel = await interaction.guild.create_voice_channel(name="➕ Create Channel")
         except discord.Forbidden:
-            await handle_permission_error("manage_channels", interaction)
+            await handle_bot_permission_error("manage_channels", interaction)
             return
         except Exception as e:
             await handle_global_error("on_creator_modal_submit", e)
@@ -442,7 +442,7 @@ class CreatorSelectView(View):
         try:
             await selected_channel.delete()
         except discord.Forbidden:
-            await handle_permission_error("manage_channels", interaction)
+            await handle_bot_permission_error("manage_channels", interaction)
             return
         except Exception as e:
             await handle_global_error("on_voice_state_update", e)
@@ -500,7 +500,7 @@ class TempChannelsCog(commands.Cog):
                             user_limit=user_limit,
                         )
                     except discord.Forbidden:
-                        await handle_permission_error("manage_channels", user=member, channel=after.channel)
+                        await handle_bot_permission_error("manage_channels", user=member, channel=after.channel)
                         return
                     except Exception as e:
                         await handle_global_error("on_voice_state_update", e)
@@ -524,7 +524,7 @@ class TempChannelsCog(commands.Cog):
                         try:
                             await left_channel.delete()
                         except discord.Forbidden:
-                            await handle_permission_error("manage_channels", user=member, channel=before.channel)
+                            await handle_bot_permission_error("manage_channels", user=member, channel=before.channel)
                             pass
                         except Exception as e:
                             await handle_global_error("on_voice_state_update", e)
@@ -551,7 +551,7 @@ class TempChannelsCog(commands.Cog):
     @setup_creators.error
     async def setup_creators_error(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
-            await handle_permission_error("manage_channels", interaction)
+            await handle_user_permission_error("manage_channels", interaction)
         else:
             await handle_command_error(interaction, error)
 
