@@ -110,6 +110,7 @@ class CreateControlView(View):
             text = "Your channel is now hidden."
         else:
             await error_handling.handle_global_error("Unexpected channel state")
+            return
 
         await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
         self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
