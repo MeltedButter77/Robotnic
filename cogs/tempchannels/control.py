@@ -1,5 +1,7 @@
 import json
 import os
+from asyncio import timeout
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -46,7 +48,7 @@ class CreateControlView(View):
     """A view containing buttons and menus for managing channel creators."""
 
     def __init__(self, database, bot: commands.Bot, channel, last_followup_message):
-        super().__init__()
+        super().__init__(timeout=None)
         self.bot = bot
         self.database = database
         self.last_followup_message = last_followup_message
@@ -116,12 +118,13 @@ class CreateControlView(View):
 
         if self.last_followup_message:
             try:
-                await self.last_followup_message.delete()
+                followup_message = await self.last_followup_message.edit(content=message)
             except discord.NotFound:
-                pass
+                followup_message = await interaction.followup.send(message)
+        else:
+            followup_message = await interaction.followup.send(message)
 
-        new_followup_message = await interaction.followup.send(message, ephemeral=True)
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, new_followup_message)
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, followup_message)
         await interaction.message.edit(embed=embed, view=view)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
