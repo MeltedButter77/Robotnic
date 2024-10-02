@@ -49,6 +49,36 @@ async def handle_user_permission_error(permission: str, interaction=None, user=N
         )
 
 
+async def handle_channel_owner_error(interaction=None, user=None, channel: discord.abc.GuildChannel = None):
+    """Handles permission errors for command interactions."""
+    if interaction:
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+
+    embed = discord.Embed(
+        title="You are not the Owner of this channel",
+        description=f"If you believe this is an error, please report this issue below.",
+        color=discord.Color.red()
+    )
+    view = discord.ui.View()
+    view.add_item(
+        discord.ui.Button(style=discord.ButtonStyle.url, label="Report an issue", url=f"{config['support_server']}"))
+
+    if interaction:
+        await interaction.followup.send(
+            f"Sorry {interaction.user.mention}, This is not your channel.",
+            embed=embed,
+            view=view,
+            ephemeral=True
+        )
+    else:
+        await channel.send(
+            f"Sorry {user.mention}, You need more permissions.",
+            embed=embed,
+            view=view,
+        )
+
+
 async def handle_bot_permission_error(permission: str, interaction=None, user=None, channel: discord.abc.GuildChannel = None):
     """Handles permission errors for command interactions."""
     if interaction:

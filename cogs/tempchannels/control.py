@@ -99,6 +99,10 @@ class CreateControlView(View):
     async def update_channel(self, interaction, new_state: ChannelState):
         await interaction.response.defer()
 
+        owner_id = self.database.get_owner_id(interaction.channel.id)
+        if not interaction.user.id == owner_id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
         if new_state == ChannelState.PUBLIC:
             permissions = {'connect': True, 'view_channel': True}
             text = "Your channel is now public."
