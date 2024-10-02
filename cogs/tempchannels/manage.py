@@ -383,10 +383,14 @@ class TempChannelsCog(commands.Cog):
                         await handle_global_error("on_voice_state_update", e)
                         return
 
-                    self.database.add_temp_channel(
-                        member.guild.id, channel.id, after.channel.id, member.id, count
-                    )
-                    await member.move_to(channel)
+                    try:
+                        self.database.add_temp_channel(
+                            member.guild.id, channel.id, after.channel.id, member.id, count
+                        )
+                        await member.move_to(channel)
+                    except Exception as e:
+                        await channel.delete()
+                        await handle_global_error("on_voice_state_update", e)
 
                     # This will be toggleable in the future via a config option for channel creators
                     # Create an embed with options within the channel
