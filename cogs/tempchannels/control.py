@@ -21,12 +21,12 @@ class ChannelState(Enum):
     HIDDEN = 2
 
 
-async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel, last_followup_message=None):
+async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel, last_followup_message_id=None):
     view = CreateControlView(
         database=database,
         bot=bot,
         channel=channel,
-        last_followup_message=last_followup_message,
+        last_followup_message_id=last_followup_message_id,
     )
 
     embed = discord.Embed(
@@ -45,11 +45,11 @@ async def create_control_menu(bot: commands.Bot, database: databasecontrol.Datab
 class CreateControlView(View):
     """A view containing buttons and menus for managing channel creators."""
 
-    def __init__(self, database, bot: commands.Bot, channel, last_followup_message):
+    def __init__(self, database, bot: commands.Bot, channel, last_followup_message_id):
         super().__init__(timeout=None)
         self.bot = bot
         self.database = database
-        self.last_followup_message = last_followup_message
+        self.last_followup_message_id = last_followup_message_id
 
         channel_state = self.database.get_channel_state(channel.guild.id, channel.id)
 
@@ -101,28 +101,29 @@ class CreateControlView(View):
 
         if new_state == ChannelState.PUBLIC:
             permissions = {'connect': True, 'view_channel': True}
-            message = "Your channel is now public."
+            text = "Your channel is now public."
         elif new_state == ChannelState.LOCKED:
             permissions = {'connect': False, 'view_channel': True}
-            message = "Your channel is now locked."
+            text = "Your channel is now locked."
         elif new_state == ChannelState.HIDDEN:
             permissions = {'view_channel': False}
-            message = "Your channel is now hidden."
+            text = "Your channel is now hidden."
         else:
             await error_handling.handle_global_error("Unexpected channel state")
 
         await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
         self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
 
-        if self.last_followup_message:
+        if self.last_followup_message_id:
             try:
-                followup_message = await self.last_followup_message.edit(content=message)
+                followup_message = await interaction.channel.fetch_message(self.last_followup_message_id)
+                await followup_message.edit(content=text)
             except discord.NotFound:
-                followup_message = await interaction.followup.send(message)
+                followup_message = await interaction.followup.send(text)
         else:
-            followup_message = await interaction.followup.send(message)
+            followup_message = await interaction.followup.send(text)
 
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, followup_message)
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, followup_message.id)
         await interaction.message.edit(embed=embed, view=view)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
@@ -148,7 +149,7 @@ class ControlTempChannelsCog(commands.Cog):
     def __init__(self, bot: commands.Bot, database):
         self.bot = bot
         self.database = database
-        self.last_followup_message = None
+        self.last_followup_message_id = None
 
     @discord.app_commands.command(name="control", description="Control your temp channel")
     @discord.app_commands.checks.has_permissions(manage_channels=True)
