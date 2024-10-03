@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import discord
@@ -54,10 +55,25 @@ async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Data
                 else:
                     cant_connect.append(member)
 
+    # Determine the channel state
+    titles = {
+        ChannelState.PUBLIC: "🌐 Your Channel is `PUBLIC`",
+        ChannelState.LOCKED: "🔒 Your Channel is `LOCKED`",
+        ChannelState.HIDDEN: "🙈 Your Channel is `HIDDEN`"
+    }
+    title = titles.get(channel_state, "Unknown")
+
+    colours = {
+        ChannelState.PUBLIC: 0x00ff00,  # green
+        ChannelState.LOCKED: 0xFF0000,  # red
+        ChannelState.HIDDEN: 0xFFA500  # orange
+    }
+    colour = colours.get(channel_state, 0x00ff00)  # green
+
     # Create the embed message
     embed = discord.Embed(
-        title=channel.name,
-        color=0x00ff00
+        title=title,
+        color=colour
     )
     value = ",\n".join([member.mention for member in can_connect]) or "None"
     if len(value) > 1024:
@@ -76,14 +92,7 @@ async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Data
         inline=True
     )
 
-    # Determine the channel state
-    channel_states = {
-        ChannelState.PUBLIC: "Public",
-        ChannelState.LOCKED: "Locked",
-        ChannelState.HIDDEN: "Hidden"
-    }
-    text = channel_states.get(channel_state, "Unknown")
-
+    text = ""
     return text, view, embed
 
 
@@ -358,21 +367,21 @@ class CreateControlView(discord.ui.View):
             emoji="🔧",
             style=discord.ButtonStyle.secondary
         )
-        #refresh_button.callback = self.modify_button_callback
+        modify_button.callback = self.modify_button_callback
 
         kick_button = discord.ui.Button(
             label="Kick",
             emoji="👢",
             style=discord.ButtonStyle.secondary
         )
-        #refresh_button.callback = self.kick_button_callback
+        kick_button.callback = self.kick_button_callback
 
         delete_button = discord.ui.Button(
             label="Delete",
             emoji="🚫",
             style=discord.ButtonStyle.secondary,
         )
-        #refresh_button.callback = self.delete_button_callback
+        delete_button.callback = self.delete_button_callback
 
         give_button = discord.ui.Button(
             label="Give Channel",
@@ -380,7 +389,7 @@ class CreateControlView(discord.ui.View):
             style=discord.ButtonStyle.success,
             row=2
         )
-        #refresh_button.callback = self.give_button_callback
+        give_button.callback = self.give_button_callback
 
         claim_button = discord.ui.Button(
             label="Claim Channel",
@@ -388,7 +397,7 @@ class CreateControlView(discord.ui.View):
             style=discord.ButtonStyle.success,
             row=2
         )
-        #refresh_button.callback = self.claim_button_callback
+        claim_button.callback = self.claim_button_callback
 
         self.add_item(modify_button)
         self.add_item(kick_button)
@@ -408,7 +417,70 @@ class CreateControlView(discord.ui.View):
             channel_state,
         )
 
+    async def modify_button_callback(self, interaction: discord.Interaction):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
+        modal = ModifyChannelModal(self.bot, self.database, interaction.channel)
+        await interaction.response.send_modal(modal)
+
+    async def kick_button_callback(self, interaction: discord.Interaction):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
+        await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True)
+
+    async def delete_button_callback(self, interaction: discord.Interaction):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
+        # Ask for confirmation
+        await interaction.response.send_message("Are you sure you want to delete this channel? Reply with 'yes' within 60 seconds to confirm.", ephemeral=True)
+
+        def check(message: discord.Message):
+            # Check that the message is from the same user in the same channel and contains 'yes'
+            return message.author == interaction.user and message.channel == interaction.channel and message.content.lower() == "yes"
+
+        try:
+            # Wait for the user to respond with "yes" within 60 seconds
+            confirmation_message = await self.bot.wait_for("message", check=check, timeout=60)
+
+            # Delete the channel from the database and then delete the channel
+            try:
+                await interaction.channel.delete()
+            except discord.Forbidden:
+                return await error_handling.handle_bot_permission_error("manage_channels", interaction=interaction)
+            except Exception as e:
+                return await error_handling.handle_global_error("control_tempchannels", e)
+            self.database.delete_temp_channel(interaction.channel.id)
+        except asyncio.TimeoutError:
+            try:
+                # If the user does not respond in time, send a timeout message
+                await interaction.followup.send("Channel deletion timed out. No action was taken.", ephemeral=True)
+            except e:
+                pass
+
+    async def give_button_callback(self, interaction: discord.Interaction):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
+        await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True)
+
+    async def claim_button_callback(self, interaction: discord.Interaction):
+        owner_id = self.database.get_owner_id(interaction.channel.id)
+        if owner_id is not None:
+            owner = await interaction.guild.fetch_member(owner_id)
+            await interaction.response.send_message(f"This channel is already owned by {owner.mention}", ephemeral=True)
+        elif interaction.user not in interaction.channel.members:
+            await interaction.response.send_message("You must be connected to this channel to claim it", ephemeral=True)
+        elif owner_id is None and interaction.user in interaction.channel.members:
+            self.database.set_owner_id(interaction.channel.id, interaction.user.id)
+            await interaction.response.send_message("You are now the owner of this channel", ephemeral=True)
+
     async def update_channel(self, interaction, new_state: ChannelState):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
         await interaction.response.defer()
 
         owner_id = self.database.get_owner_id(interaction.channel.id)
@@ -433,8 +505,7 @@ class CreateControlView(discord.ui.View):
         self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
 
         # update the control menu with wrong followup message. this gets a response to the user quicker but may break when spammed
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel,
-                                                self.last_followup_message_id)
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, self.last_followup_message_id)
         await interaction.message.edit(embed=embed, view=view)
 
         # Create or update followup message
@@ -474,6 +545,45 @@ class CreateControlView(discord.ui.View):
             interaction,
             ChannelState.PUBLIC,
         )
+
+
+class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
+        super().__init__()
+        self.bot = bot
+        self.database = database
+        self.channel = channel
+
+        # Define the text inputs
+        channel_name = discord.ui.TextInput(
+            label=f"Channel Name",
+            placeholder=f"{channel.name}",
+            required=False,
+            max_length=25
+        )
+        user_limit = discord.ui.TextInput(
+            label="User Limit (Unlimited = 0)",
+            placeholder=f"{channel.user_limit}",
+            required=False,
+            max_length=2
+        )
+
+        self.add_item(channel_name)
+        self.add_item(user_limit)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Create a new voice channel and add it to the database
+        channel_name = interaction.data["components"][0]["components"][0]["value"]
+        if channel_name == "":
+            channel_name = self.channel.name
+        user_limit = interaction.data["components"][1]["components"][0]["value"]
+        if user_limit == "":
+            user_limit = self.channel.user_limit
+        else:
+            user_limit = int(user_limit)
+
+        await self.channel.edit(name=channel_name, user_limit=user_limit)
+        await interaction.response.send_message("Your channel has been updated", ephemeral=True)
 
 
 class ControlTempChannelsCog(commands.Cog):
