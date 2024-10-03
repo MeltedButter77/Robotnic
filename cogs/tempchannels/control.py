@@ -23,93 +23,126 @@ class ChannelState(Enum):
     HIDDEN = 2
 
 
-async def create_followup_menu(bot: commands.Bot, channel: discord.TextChannel, channel_state):
+async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Database, interaction: discord.Interaction, followup_id=None):
+    """Updates the follow-up message in the channel."""
+    channel_state = ChannelState(database.get_channel_state(interaction.channel.guild.id, interaction.channel.id))
+
     view = CreateFollowupView(
         bot=bot,
-        channel=channel,
+        database=database,
+        channel=interaction.channel,
         channel_state=channel_state,
+        followup_id=followup_id
     )
 
-    # Get members that can view and connect
-    can_view_channel = []
+    # Separate members who can and can't connect
     can_connect = []
+    cant_connect = []
+    if interaction.channel.type == discord.ChannelType.voice:
+        for member in interaction.channel.guild.members:
+            if not member.bot:
+                permissions = interaction.channel.permissions_for(member)
+                if permissions.connect:
+                    can_connect.append(member)
+                else:
+                    cant_connect.append(member)
 
-    # Iterate through all members in the guild
-    for member in channel.guild.members:
-        # Check if the member can view the channel
-        if channel.permissions_for(member).view_channel:
-            can_view_channel.append(member)
-
-        # Check if the member can connect (for voice channels)
-        if channel.type == discord.ChannelType.voice and channel.permissions_for(member).connect:
-            can_connect.append(member)
-
+    # Create the embed message
     embed = discord.Embed(
-        title=f"{channel.name}",
-        description = f"",
-        color=0x00ff00,
+        title=interaction.channel.name,
+        color=0x00ff00
     )
     embed.add_field(
-        name="Users who can join",
-        value=f"{', '.join([member.mention for member in can_connect])}",
+        name="Allowed Users",
+        value=", ".join([member.mention for member in can_connect]) or "None",
+        inline=True
+    )
+    embed.add_field(
+        name="Blocked Users",
+        value=", ".join([member.mention for member in cant_connect]) or "None",
         inline=True
     )
 
-    text = ""
-    if channel_state == ChannelState.PUBLIC:
-        text = "Public"
-    elif channel_state == ChannelState.LOCKED:
-        text = "Locked"
-    elif channel_state == ChannelState.HIDDEN:
-        text = "Hidden"
+    # Determine the channel state
+    channel_states = {
+        ChannelState.PUBLIC: "Public",
+        ChannelState.LOCKED: "Locked",
+        ChannelState.HIDDEN: "Hidden"
+    }
+    text = channel_states.get(channel_state, "Unknown")
 
-    return view, embed, text
+    return text, view, embed
 
 
 class CreateFollowupView(discord.ui.View):
     """A view containing buttons and menus for managing channel creators."""
 
-    def __init__(self, bot: commands.Bot, channel, channel_state):
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel, channel_state, followup_id=0):
         super().__init__(timeout=None)
         self.bot = bot
+        self.database = database
         self.channel = channel
         self.channel_state = channel_state
 
-        button = discord.ui.Button(
-            label="button",
-            style=discord.ButtonStyle.primary
-        )
-        button.callback = self.button_callback
-
-        self.add_item(PermissionSelectMenu(bot=bot, channel=channel, channel_state=channel_state))
-
-        self.add_item(button)
-
-    async def button_callback(self, interaction: discord.Interaction):
-        print("clicked followup button")
+        if channel_state == ChannelState.PUBLIC:
+            ban_perms = {'connect': False, 'view_channel': False}
+            self.add_item(UpdatePermSelectMenu(bot, self.database, ban_perms, "Select a user or role to BAN"))
+        elif channel_state == ChannelState.LOCKED or channel_state == ChannelState.HIDDEN:
+            allow_perms = {'connect': True, 'view_channel': True}
+            self.add_item(UpdatePermSelectMenu(bot, self.database, allow_perms, "Select a user or role to ALLOW"))
 
 
-class PermissionSelectMenu(discord.ui.MentionableSelect):
-    """A dropdown menu for selecting a users or roles to give view and connect permissions to."""
+class UpdatePermSelectMenu(discord.ui.MentionableSelect):
+    """A dropdown menu for selecting users or roles to give view and connect permissions to."""
 
     def __init__(self,
-                bot: commands.Bot,
-                channel: discord.TextChannel,
-                channel_state = None,
-            ):
+                 bot: commands.Bot,
+                 database: databasecontrol.Database,
+                 permissions: dict,
+                 placeholder: str
+                 ):
         self.bot = bot
-        self.channel = channel
-        self.channel_state = channel_state
+        self.database = database
+        self.permissions = permissions
 
-        super().__init__(
-            placeholder="Select a user or role",
-            min_values=1,
-            max_values=25
-        )
+        if permissions['connect']:
+            super().__init__(
+                placeholder=placeholder,
+                min_values=1,
+                max_values=25
+            )
+        else:
+            super().__init__(
+                placeholder="Select a user or role to BLOCK",
+                min_values=1,
+                max_values=25
+            )
 
     async def callback(self, interaction: discord.Interaction):
-        """Handle the selection of a channel creator."""
-        pass
+        """Handle the selection of users or roles."""
+        selected_entities = self.values  # The selected users or roles
+
+        # Iterate through the selected users or roles
+        for entity in selected_entities:
+            # Check if the entity is a Member (user) or a Role
+            member = interaction.guild.get_member(int(entity.id))
+            if member:
+                target = member
+            else:
+                # Fetch all roles and find the matching role by ID
+                roles = await interaction.guild.fetch_roles()
+                target = discord.utils.get(roles, id=int(entity.id))
+
+            if target:
+                # Update permissions for viewing and connecting
+                await self.channel.set_permissions(
+                    target,
+                    **self.permissions
+                )
+
+        text, view, embed = await create_followup_menu(self.bot, self.database, interaction)
+
+        await interaction.response.edit_message(content="updated", embed=embed, view=view)
 
 
 async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel, last_followup_message_id=None):
@@ -211,17 +244,28 @@ class CreateControlView(discord.ui.View):
         await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
         self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
 
-        # Create the followup message and menu
-        view, embed, text = await create_followup_menu(self.bot, interaction.channel, new_state)
+        # update the control menu with wrong followup message. this gets a response to the user quicker but may break when spammed
+        view, embed = await create_control_menu(self.bot, self.database, interaction.channel,
+                                                self.last_followup_message_id)
+        await interaction.message.edit(embed=embed, view=view)
+
+        # Create or update followup message
+        text, view, embed = await create_followup_menu(self.bot, self.database, interaction)
+
+        # Try to fetch the last follow-up message, if exists
+        followup_message = None
         if self.last_followup_message_id:
             try:
                 followup_message = await interaction.channel.fetch_message(self.last_followup_message_id)
-                await followup_message.edit(content=text, view=view, embed=embed)
             except discord.NotFound:
-                followup_message = await interaction.followup.send(content=text, view=view, embed=embed)
+                followup_message = None
+        # Edit the followup message if it exists, otherwise send a new follow-up
+        if followup_message:
+            await followup_message.edit(content=text, view=view, embed=embed)
         else:
             followup_message = await interaction.followup.send(content=text, view=view, embed=embed)
 
+        # update the control menu with correct followup message
         view, embed = await create_control_menu(self.bot, self.database, interaction.channel, followup_message.id)
         await interaction.message.edit(embed=embed, view=view)
 
