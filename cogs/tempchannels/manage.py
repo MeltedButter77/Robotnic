@@ -310,7 +310,7 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
         label="User Limit (Unlimited = 0)",
         placeholder="Default: 0",
         required=False,
-        max_length=3
+        max_length=2
     )
 
     async def on_submit(self, interaction: discord.Interaction):
