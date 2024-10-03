@@ -1,7 +1,5 @@
 import json
 import os
-import time
-
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -21,6 +19,15 @@ class ChannelState(Enum):
     PUBLIC = 0
     LOCKED = 1
     HIDDEN = 2
+
+# TODO:
+#  1. Restrict editing a channel to owner
+#  2. Add a modify button to change channel name and limit
+#  3. Add a delete button to delete the channel
+#  4. Add a button to kick users from your channel
+#  5. Add a button to give the channel to another user
+#  6. Add a button to claim the channel if it has no owner
+#  7. Add a clear chat button
 
 
 async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel, followup_id=None):
@@ -170,6 +177,8 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
         # Get all permission overwrites
         overwrites = channel.overwrites
 
+        channel_owner_id = database.get_owner_id(channel.id)
+
         options = []
         for target, overwrite in overwrites.items():
 
@@ -178,7 +187,7 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
                 current_value = getattr(overwrite, perm, None)
 
                 # Exclude the everyone role since its managed by the main buttons
-                if target.id == channel.guild.default_role.id:
+                if target.id == channel.guild.default_role.id or target.id == channel_owner_id:
                     continue
 
                 # If the permission does not match, we should include this target
@@ -187,12 +196,21 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
                     break
 
             if not exclude_target:
+                # Check if target is a user (discord.Member) or a role (discord.Role)
+                if isinstance(target, discord.Member):
+                    emoji = "👤"
+                    label = target.display_name
+                elif isinstance(target, discord.Role):
+                    emoji = "🔧"
+                    label = target.name
+
+                # Append the option with the appropriate emoji
                 options.append(
                     discord.SelectOption(
-                        label=f"{target.name}",
-                        description=f"{target.id}",
+                        label=f"{label}",
+                        description=f"",
                         value=f"{target.id}",
-                        emoji="🔧"
+                        emoji=emoji
                     )
                 )
 
@@ -279,52 +297,108 @@ class CreateControlView(discord.ui.View):
         if channel_state != ChannelState.LOCKED.value:
             lock_button = discord.ui.Button(
                 label="Lock",
-                style=discord.ButtonStyle.primary
+                emoji="🔒",
+                style=discord.ButtonStyle.primary,
+                row=1
             )
         else:
             lock_button = discord.ui.Button(
                 label="Lock",
+                emoji="🔒",
                 style=discord.ButtonStyle.primary,
-                disabled=True
+                disabled=True,
+                row=1
             )
         lock_button.callback = self.lock_button_callback
 
         if channel_state != ChannelState.HIDDEN.value:
             hide_button = discord.ui.Button(
                 label="Hide",
-                style=discord.ButtonStyle.primary
+                emoji="🙈",
+                style=discord.ButtonStyle.primary,
+                row=1
             )
         else:
             hide_button = discord.ui.Button(
                 label="Hide",
+                emoji="🙈",
                 style=discord.ButtonStyle.primary,
-                disabled=True
+                disabled=True,
+                row=1
             )
         hide_button.callback = self.hide_button_callback
 
         if channel_state != ChannelState.PUBLIC.value:
             public_button = discord.ui.Button(
                 label="Public",
-                style=discord.ButtonStyle.primary
+                emoji="🌐",
+                style=discord.ButtonStyle.primary,
+                row=1
             )
         else:
             public_button = discord.ui.Button(
                 label="Public",
+                emoji="🌐",
                 style=discord.ButtonStyle.primary,
-                disabled=True
+                disabled=True,
+                row=1
             )
         public_button.callback = self.public_button_callback
 
         refresh_button = discord.ui.Button(
             label="Refresh",
-            style=discord.ButtonStyle.primary
+            emoji="🔄",
+            style=discord.ButtonStyle.secondary,
+            row=1
         )
         refresh_button.callback = self.refresh_button_callback
 
+        modify_button = discord.ui.Button(
+            label="Modify",
+            emoji="🔧",
+            style=discord.ButtonStyle.secondary
+        )
+        #refresh_button.callback = self.modify_button_callback
+
+        kick_button = discord.ui.Button(
+            label="Kick",
+            emoji="👢",
+            style=discord.ButtonStyle.secondary
+        )
+        #refresh_button.callback = self.kick_button_callback
+
+        delete_button = discord.ui.Button(
+            label="Delete",
+            emoji="🚫",
+            style=discord.ButtonStyle.secondary,
+        )
+        #refresh_button.callback = self.delete_button_callback
+
+        give_button = discord.ui.Button(
+            label="Give Channel",
+            emoji="🎁",
+            style=discord.ButtonStyle.success,
+            row=2
+        )
+        #refresh_button.callback = self.give_button_callback
+
+        claim_button = discord.ui.Button(
+            label="Claim Channel",
+            emoji="🎫",
+            style=discord.ButtonStyle.success,
+            row=2
+        )
+        #refresh_button.callback = self.claim_button_callback
+
+        self.add_item(modify_button)
+        self.add_item(kick_button)
+        self.add_item(delete_button)
         self.add_item(public_button)
         self.add_item(hide_button)
         self.add_item(lock_button)
         self.add_item(refresh_button)
+        self.add_item(give_button)
+        self.add_item(claim_button)
 
     async def refresh_button_callback(self, interaction: discord.Interaction):
         channel_state_id = self.database.get_channel_state(interaction.channel.guild.id, interaction.channel.id)
