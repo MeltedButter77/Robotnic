@@ -87,9 +87,11 @@ class CreateFollowupView(discord.ui.View):
         if channel_state == ChannelState.PUBLIC:
             ban_perms = {'connect': False, 'view_channel': False}
             self.add_item(UpdatePermSelectMenu(bot, self.database, ban_perms, "Select a user or role to BAN"))
+            # TODO: Need a remove from banlist mechanism
         elif channel_state == ChannelState.LOCKED or channel_state == ChannelState.HIDDEN:
             allow_perms = {'connect': True, 'view_channel': True}
             self.add_item(UpdatePermSelectMenu(bot, self.database, allow_perms, "Select a user or role to ALLOW"))
+            # TODO: Need a remove from allowlist mechanism
 
 
 class UpdatePermSelectMenu(discord.ui.MentionableSelect):
