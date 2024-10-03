@@ -22,13 +22,8 @@ class ChannelState(Enum):
     HIDDEN = 2
 
 # TODO:
-#  1. Restrict editing a channel to owner
-#  2. Add a modify button to change channel name and limit
-#  3. Add a delete button to delete the channel
 #  4. Add a button to kick users from your channel
 #  5. Add a button to give the channel to another user
-#  6. Add a button to claim the channel if it has no owner
-#  7. Add a clear chat button
 
 
 async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel, followup_id=None):
@@ -376,12 +371,13 @@ class CreateControlView(discord.ui.View):
         )
         kick_button.callback = self.kick_button_callback
 
-        delete_button = discord.ui.Button(
-            label="Delete",
-            emoji="🚫",
-            style=discord.ButtonStyle.secondary,
+        clear_button = discord.ui.Button(
+            label="Clear Channel Messages",
+            emoji="🎫",
+            style=discord.ButtonStyle.danger,
+            row=0
         )
-        delete_button.callback = self.delete_button_callback
+        clear_button.callback = self.clear_button_callback
 
         give_button = discord.ui.Button(
             label="Give Channel",
@@ -399,15 +395,24 @@ class CreateControlView(discord.ui.View):
         )
         claim_button.callback = self.claim_button_callback
 
+        delete_button = discord.ui.Button(
+            label="Delete",
+            emoji="🚫",
+            style=discord.ButtonStyle.secondary,
+            row=2
+        )
+        delete_button.callback = self.delete_button_callback
+
         self.add_item(modify_button)
         self.add_item(kick_button)
-        self.add_item(delete_button)
+        self.add_item(clear_button)
         self.add_item(public_button)
         self.add_item(hide_button)
         self.add_item(lock_button)
         self.add_item(refresh_button)
         self.add_item(give_button)
         self.add_item(claim_button)
+        self.add_item(delete_button)
 
     async def refresh_button_callback(self, interaction: discord.Interaction):
         channel_state_id = self.database.get_channel_state(interaction.channel.guild.id, interaction.channel.id)
@@ -429,6 +434,24 @@ class CreateControlView(discord.ui.View):
             return await error_handling.handle_channel_owner_error(interaction)
 
         await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True)
+
+    async def clear_button_callback(self, interaction: discord.Interaction):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+        await interaction.response.defer(ephemeral=True)
+
+        # Fetch messages from the channel
+        messages_to_delete = []
+        async for message in interaction.channel.history(limit=None):
+            # Exclude the message with the last_followup_message_id
+            if message.id != self.last_followup_message_id and message.id != interaction.message.id:
+                messages_to_delete.append(message)
+
+        # Bulk delete the filtered messages
+        if messages_to_delete:
+            await interaction.channel.delete_messages(messages_to_delete)
+
+        await interaction.followup.send(f"Deleted {len(messages_to_delete)} messages.", ephemeral=True)
 
     async def delete_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
