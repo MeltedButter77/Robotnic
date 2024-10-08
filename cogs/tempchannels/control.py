@@ -8,6 +8,7 @@ import discord.ui
 import databasecontrol
 import error_handling
 from enum import Enum
+import asyncio
 
 base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
 config_path = os.path.join(base_directory, 'config.json')
@@ -22,15 +23,108 @@ class ChannelState(Enum):
     HIDDEN = 2
 
 # TODO:
-#  4. Add a button to kick users from your channel
-#  5. Add a button to give the channel to another user
+#  1. Migrate all view's to be initialised like the KickControlView
+#  2. Add a button to give the channel to another user
+
+
+class KickControlView(discord.ui.View):
+    """A view containing buttons and menus for managing channel creators."""
+
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.database = database
+        self.channel = channel
+        self.message = None
+
+        self.add_item(KickSelectMenu(bot, self.database, self.channel))
+
+    async def send_initial_message(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="👟 Who would you like to kick from your channel?",
+            description=f"You have 60 seconds to select at least one member.",
+            color=0x00ff00
+        )
+        await interaction.response.defer()
+        self.message = await interaction.followup.send(embed=embed, view=self, ephemeral=True, wait=True)  # wait ensures that self.message is set before continuing
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
+
+
+class KickSelectMenu(discord.ui.Select):
+    """A dropdown menu for selecting users to kick."""
+
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel):
+        self.bot = bot
+        self.database = database
+        self.channel = channel
+
+        owner_id = database.get_owner_id(channel.id)
+
+        options = []
+        for member in channel.members:
+            if member.id == owner_id:
+                continue
+            options.append(
+                discord.SelectOption(
+                    label=f"{member.display_name}",
+                    description=f"",
+                    value=f"{member.id}",
+                    emoji="👥"
+                )
+            )
+
+        if not options:
+            options = [
+                discord.SelectOption(
+                    label="None",
+                    value="None",
+                    emoji="🔧",
+                    description="No members to kick"
+                )
+            ]
+            super().__init__(placeholder="No members to kick", options=options, disabled=True)
+        else:
+            super().__init__(placeholder="Select users to kick", options=options, min_values=1, max_values=len(options))
+
+    async def callback(self, interaction: discord.Interaction):
+        kick_perms = {'connect': False, 'view_channel': False}
+        selected_members = self.values
+        members = []
+        print(selected_members)
+        for member_id in selected_members:
+            member = interaction.guild.get_member(int(member_id))
+            if member:
+                members.append(member)
+                await member.move_to(None)
+                await self.channel.set_permissions(
+                    member,
+                    **kick_perms
+                )
+
+        if len(members) > 0:
+            embed = discord.Embed(
+                title="Kicked!",
+                description=f"Kicked {len(members)} member(s) from your channel.",
+                color=0x00ff00
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            if self.view.message:
+                await self.view.message.delete()
+            await asyncio.sleep(10)
+            await interaction.delete_original_response()
 
 
 async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel, followup_id=None):
     """Updates the follow-up message in the channel."""
     channel_state = ChannelState(database.get_channel_state(channel.guild.id, channel.id))
 
-    view = CreateFollowupView(
+    view = FollowupView(
         bot=bot,
         database=database,
         channel=channel,
@@ -91,7 +185,7 @@ async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Data
     return text, view, embed
 
 
-class CreateFollowupView(discord.ui.View):
+class FollowupView(discord.ui.View):
     """A view containing buttons and menus for managing channel creators."""
 
     def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel, channel_state, followup_id=0):
@@ -279,11 +373,6 @@ async def create_control_menu(bot: commands.Bot, database: databasecontrol.Datab
         description=f"Use the buttons below to manage your temporary channel.",
         color=0x00ff00
     )
-    # embed.add_field(
-    #     name="Field Name",
-    #     value="Field Value.",
-    #     inline=False
-    # )
     return view, embed
 
 
@@ -433,7 +522,7 @@ class CreateControlView(discord.ui.View):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
             return await error_handling.handle_channel_owner_error(interaction)
 
-        await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True)
+        await KickControlView(self.bot, self.database, interaction.channel).send_initial_message(interaction)
 
     async def clear_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
