@@ -410,13 +410,8 @@ class TempChannelsCog(commands.Cog):
                     # This will be toggleable in the future via a config option for channel creators
                     # Create an embed with options within the channel
                     try:
-                        view, embed = await cogs.tempchannels.control.create_control_menu(self.bot, self.database, channel)
-                        message = await channel.send(f"Welcome to your new channel!", embed=embed, view=view)  # TODO: make config to add {member.mention} to notify channel creator.
-                        await message.edit(content='', embed=embed, view=view)
-                        text, view, embed = await cogs.tempchannels.control.create_followup_menu(self.bot, self.database, channel)
-                        followup = await message.reply(text, view=view, embed=embed)
-                        view, embed = await cogs.tempchannels.control.create_control_menu(self.bot, self.database, channel, followup.id)
-                        await message.edit(embed=embed, view=view)
+                        ControlView = cogs.tempchannels.control.CreateControlView(self.bot, self.database, channel)
+                        await ControlView.send_initial_message()
                     except discord.Forbidden:
                         await handle_bot_permission_error("manage_channels", user=member, channel=channel)
                         pass

@@ -22,10 +22,6 @@ class ChannelState(Enum):
     LOCKED = 1
     HIDDEN = 2
 
-# TODO:
-#  1. Migrate all view's to be initialised like the KickControlView
-#  2. Add a button to give the channel to another user
-
 
 class KickControlView(discord.ui.View):
     """A view containing buttons and menus for managing channel creators."""
@@ -96,7 +92,6 @@ class KickSelectMenu(discord.ui.Select):
         kick_perms = {'connect': False, 'view_channel': False}
         selected_members = self.values
         members = []
-        print(selected_members)
         for member_id in selected_members:
             member = interaction.guild.get_member(int(member_id))
             if member:
@@ -120,119 +115,123 @@ class KickSelectMenu(discord.ui.Select):
             await interaction.delete_original_response()
 
 
-async def create_followup_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel, followup_id=None):
-    """Updates the follow-up message in the channel."""
-    channel_state = ChannelState(database.get_channel_state(channel.guild.id, channel.id))
-
-    view = FollowupView(
-        bot=bot,
-        database=database,
-        channel=channel,
-        channel_state=channel_state,
-        followup_id=followup_id
-    )
-
-    # Separate members who can and can't connect
-    can_connect = []
-    cant_connect = []
-    if channel.type == discord.ChannelType.voice:
-        for member in channel.guild.members:
-            if not member.bot:
-                permissions = channel.permissions_for(member)
-                if permissions.connect:
-                    can_connect.append(member)
-                else:
-                    cant_connect.append(member)
-
-    # Determine the channel state
-    titles = {
-        ChannelState.PUBLIC: "🌐 Your Channel is `PUBLIC`",
-        ChannelState.LOCKED: "🔒 Your Channel is `LOCKED`",
-        ChannelState.HIDDEN: "🙈 Your Channel is `HIDDEN`"
-    }
-    title = titles.get(channel_state, "Unknown")
-
-    colours = {
-        ChannelState.PUBLIC: 0x00ff00,  # green
-        ChannelState.LOCKED: 0xFF0000,  # red
-        ChannelState.HIDDEN: 0xFFA500  # orange
-    }
-    colour = colours.get(channel_state, 0x00ff00)  # green
-
-    # Create the embed message
-    embed = discord.Embed(
-        title=title,
-        color=colour
-    )
-    value = ",\n".join([member.mention for member in can_connect]) or "None"
-    if len(value) > 1024:
-        value = f"{len(can_connect)} members"
-    embed.add_field(
-        name="Allowed Users",
-        value=value,
-        inline=True
-    )
-    value = ",\n".join([member.mention for member in cant_connect]) or "None"
-    if len(value) > 1024:
-        value = f"{len(cant_connect)} members"
-    embed.add_field(
-        name="Blocked Users",
-        value=value,
-        inline=True
-    )
-
-    text = ""
-    return text, view, embed
-
-
 class FollowupView(discord.ui.View):
-    """A view containing buttons and menus for managing channel creators."""
+    """A view containing buttons and menus for managing channel permissions."""
 
-    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel, channel_state, followup_id=0):
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
         super().__init__(timeout=None)
         self.bot = bot
         self.database = database
         self.channel = channel
-        self.channel_state = channel_state
+        self.message = None
 
+        self.setup_items()
+
+    def setup_items(self):
         allow_perms = {'connect': True, 'view_channel': True}
         ban_perms = {'connect': False, 'view_channel': False}
+
+        channel_state = ChannelState(self.database.get_channel_state(self.channel.guild.id, self.channel.id))
         if channel_state == ChannelState.PUBLIC:
-            self.add_item(UpdatePermSelectMenu(bot, self.database, ban_perms, "Select a user or role to BAN"))
-            self.add_item(RemoveOverwritesSelectMenu(bot, self.database, channel, allow_perms, f"Remove user or role from BANLIST"))
-        elif channel_state == ChannelState.LOCKED or channel_state == ChannelState.HIDDEN:
-            self.add_item(UpdatePermSelectMenu(bot, self.database, allow_perms, "Select a user or role to ALLOW"))
-            self.add_item(RemoveOverwritesSelectMenu(bot, self.database, channel, ban_perms, f"Remove user or role from ALLOWLIST"))
+            self.add_item(UpdatePermSelectMenu(self.bot, self.database, self.channel, ban_perms, "Select a user or role to BAN"))
+            self.add_item(RemoveOverwritesSelectMenu(self.bot, self.database, self.channel, ban_perms, "Remove user or role from BANLIST"))
+        elif channel_state in (ChannelState.LOCKED, ChannelState.HIDDEN):
+            self.add_item(UpdatePermSelectMenu(self.bot, self.database, self.channel, allow_perms, "Select a user or role to ALLOW"))
+            self.add_item(RemoveOverwritesSelectMenu(self.bot, self.database, self.channel, allow_perms, "Remove user or role from ALLOWLIST"))
+
+    async def send_message(self, interaction: discord.Interaction=None):
+        # Separate members who can and can't connect
+        can_connect = []
+        cant_connect = []
+        if self.channel.type == discord.ChannelType.voice:
+            for member in self.channel.guild.members:
+                if not member.bot:
+                    permissions = self.channel.permissions_for(member)
+                    if permissions.connect:
+                        can_connect.append(member)
+                    else:
+                        cant_connect.append(member)
+
+        channel_state = ChannelState(self.database.get_channel_state(self.channel.guild.id, self.channel.id))
+        # Determine the channel state
+        titles = {
+            ChannelState.PUBLIC: "🌐 Your Channel is `PUBLIC`",
+            ChannelState.LOCKED: "🔒 Your Channel is `LOCKED`",
+            ChannelState.HIDDEN: "🙈 Your Channel is `HIDDEN`"
+        }
+        title = titles.get(channel_state, "Unknown")
+
+        colours = {
+            ChannelState.PUBLIC: 0x00ff00,  # green
+            ChannelState.LOCKED: 0xFF0000,  # red
+            ChannelState.HIDDEN: 0xFFA500  # orange
+        }
+        colour = colours.get(channel_state, 0x00ff00)  # green
+
+        # Create the embed message
+        embed = discord.Embed(
+            title=title,
+            color=colour
+        )
+        value = ",\n".join([member.mention for member in can_connect]) or "None"
+        if len(value) > 1024:
+            value = f"{len(can_connect)} members"
+        embed.add_field(
+            name="Allowed Users",
+            value=value,
+            inline=True
+        )
+        value = ",\n".join([member.mention for member in cant_connect]) or "None"
+        if len(value) > 1024:
+            value = f"{len(cant_connect)} members"
+        embed.add_field(
+            name="Blocked Users",
+            value=value,
+            inline=True
+        )
+
+        self.clear_items()
+        self.setup_items()
+
+        # use asyncio to run the tasks simultaneously
+        tasks = []
+        if self.message:
+            tasks.append(self.message.delete())
+        tasks.append(interaction.followup.send(embed=embed, view=self, ephemeral=True))
+        results = await asyncio.gather(*tasks)
+        self.message = results[-1]
+
+        return self.message
+
+    async def on_timeout(self):
+        # Optionally handle timeout if needed
+        pass
 
 
 class UpdatePermSelectMenu(discord.ui.MentionableSelect):
-    """A dropdown menu for selecting users or roles to give view and connect permissions to."""
+    """A dropdown menu for selecting users or roles to update permissions."""
 
     def __init__(self,
                  bot: commands.Bot,
                  database: databasecontrol.Database,
+                 channel: discord.abc.GuildChannel,
                  permissions: dict,
                  placeholder: str
                  ):
         self.bot = bot
         self.database = database
+        self.channel = channel
         self.permissions = permissions
 
-        if permissions['connect']:
-            super().__init__(
-                placeholder=placeholder,
-                min_values=0,
-                max_values=25
-            )
-        else:
-            super().__init__(
-                placeholder="Select a user or role to BLOCK",
-                min_values=0,
-                max_values=25
-            )
+        super().__init__(
+            placeholder=placeholder,
+            min_values=0,
+            max_values=25
+        )
 
     async def callback(self, interaction: discord.Interaction):
         """Handle the selection of users or roles."""
+        await interaction.response.defer()
         selected_entities = self.values  # The selected users or roles
 
         # Iterate through the selected users or roles
@@ -248,18 +247,17 @@ class UpdatePermSelectMenu(discord.ui.MentionableSelect):
 
             if target:
                 # Update permissions for viewing and connecting
-                await interaction.channel.set_permissions(
+                await self.channel.set_permissions(
                     target,
                     **self.permissions
                 )
 
-        text, view, embed = await create_followup_menu(self.bot, self.database, interaction.channel)
-        await interaction.response.edit_message(content=text, embed=embed, view=None)
-        await interaction.edit_original_response(content=text, embed=embed, view=view)
+        # Refresh the view
+        await self.view.send_message(interaction)
 
 
 class RemoveOverwritesSelectMenu(discord.ui.Select):
-    """A dropdown menu for selecting users or roles to give view and connect permissions to."""
+    """A dropdown menu for removing permission overwrites."""
 
     def __init__(self,
                  bot: commands.Bot,
@@ -270,7 +268,8 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
                  ):
         self.bot = bot
         self.database = database
-        self.permissions = permissions # example: {'connect': False, 'view_channel': False}
+        self.channel = channel
+        self.permissions = permissions  # example: {'connect': False, 'view_channel': False}
 
         # Get all permission overwrites
         overwrites = channel.overwrites
@@ -280,16 +279,16 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
         options = []
         for target, overwrite in overwrites.items():
 
+            # Exclude the everyone role since it's managed by the main buttons
+            if target.id == channel.guild.default_role.id or target.id == channel_owner_id:
+                continue
+
             exclude_target = True
             for perm, expected_value in self.permissions.items():
                 current_value = getattr(overwrite, perm, None)
 
-                # Exclude the everyone role since its managed by the main buttons
-                if target.id == channel.guild.default_role.id or target.id == channel_owner_id:
-                    continue
-
-                # If the permission does not match, we should include this target
-                if current_value != expected_value:
+                # If the permission matches, we should include this target
+                if current_value == expected_value:
                     exclude_target = False
                     break
 
@@ -316,7 +315,7 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
             options.append(
                 discord.SelectOption(
                     label=f"None",
-                    description=f"Dont select me",
+                    description=f"Don't select me",
                     value=f"None",
                     emoji="🔧"
                 )
@@ -338,6 +337,7 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         """Handle the selection of users or roles."""
+        await interaction.response.defer()
         selected_entities = self.values  # The selected users or roles
 
         # Iterate through the selected users or roles
@@ -352,90 +352,55 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
                 target = discord.utils.get(roles, id=int(entity_id))
 
             if target:
-                # Update permissions for viewing and connecting
-                await interaction.channel.set_permissions(target, overwrite=None)
+                # Remove permissions
+                await self.channel.set_permissions(target, overwrite=None)
 
-        text, view, embed = await create_followup_menu(self.bot, self.database, interaction.channel)
-        await interaction.response.edit_message(content=text, embed=embed, view=None)
-        await interaction.edit_original_response(content=text, embed=embed, view=view)
-
-
-async def create_control_menu(bot: commands.Bot, database: databasecontrol.Database, channel: discord.TextChannel, last_followup_message_id=None):
-    view = CreateControlView(
-        database=database,
-        bot=bot,
-        channel=channel,
-        last_followup_message_id=last_followup_message_id,
-    )
-
-    embed = discord.Embed(
-        title="Manage your Temporary Channel",
-        description=f"Use the buttons below to manage your temporary channel.",
-        color=0x00ff00
-    )
-    return view, embed
+        # Refresh the view
+        await self.view.send_message(interaction)
 
 
 class CreateControlView(discord.ui.View):
-    """A view containing buttons and menus for managing channel creators."""
+    """A view containing buttons and menus for managing channel settings."""
 
-    def __init__(self, database, bot: commands.Bot, channel, last_followup_message_id):
+    def __init__(self, bot: commands.Bot, database, channel):
         super().__init__(timeout=None)
         self.bot = bot
         self.database = database
-        self.last_followup_message_id = last_followup_message_id
+        self.channel = channel
+        self.message = None
+        self.followup_view = None
 
-        channel_state = self.database.get_channel_state(channel.guild.id, channel.id)
+        self.setup_items()
 
-        if channel_state != ChannelState.LOCKED.value:
-            lock_button = discord.ui.Button(
-                label="Lock",
-                emoji="🔒",
-                style=discord.ButtonStyle.primary,
-                row=1
-            )
-        else:
-            lock_button = discord.ui.Button(
-                label="Lock",
-                emoji="🔒",
-                style=discord.ButtonStyle.primary,
-                disabled=True,
-                row=1
-            )
+    def setup_items(self):
+        channel_state = self.database.get_channel_state(self.channel.guild.id, self.channel.id)
+
+        # Define buttons and their callbacks
+        lock_button = discord.ui.Button(
+            label="Lock",
+            emoji="🔒",
+            style=discord.ButtonStyle.primary,
+            row=1,
+            disabled=(channel_state == ChannelState.LOCKED.value)
+        )
         lock_button.callback = self.lock_button_callback
 
-        if channel_state != ChannelState.HIDDEN.value:
-            hide_button = discord.ui.Button(
-                label="Hide",
-                emoji="🙈",
-                style=discord.ButtonStyle.primary,
-                row=1
-            )
-        else:
-            hide_button = discord.ui.Button(
-                label="Hide",
-                emoji="🙈",
-                style=discord.ButtonStyle.primary,
-                disabled=True,
-                row=1
-            )
+        hide_button = discord.ui.Button(
+            label="Hide",
+            emoji="🙈",
+            style=discord.ButtonStyle.primary,
+            row=1,
+            disabled=(channel_state == ChannelState.HIDDEN.value)
+        )
         hide_button.callback = self.hide_button_callback
 
-        if channel_state != ChannelState.PUBLIC.value:
-            public_button = discord.ui.Button(
-                label="Public",
-                emoji="🌐",
-                style=discord.ButtonStyle.primary,
-                row=1
-            )
-        else:
-            public_button = discord.ui.Button(
-                label="Public",
-                emoji="🌐",
-                style=discord.ButtonStyle.primary,
-                disabled=True,
-                row=1
-            )
+        public_button = discord.ui.Button(
+            label="Public",
+            emoji="🌐",
+            style=discord.ButtonStyle.primary,
+            row=1,
+            disabled=(channel_state == ChannelState.PUBLIC.value)
+        )
         public_button.callback = self.public_button_callback
 
         refresh_button = discord.ui.Button(
@@ -492,6 +457,7 @@ class CreateControlView(discord.ui.View):
         )
         delete_button.callback = self.delete_button_callback
 
+        # Add buttons to the view
         self.add_item(modify_button)
         self.add_item(kick_button)
         self.add_item(clear_button)
@@ -502,6 +468,18 @@ class CreateControlView(discord.ui.View):
         self.add_item(give_button)
         self.add_item(claim_button)
         self.add_item(delete_button)
+
+    async def send_initial_message(self, interaction: discord.Interaction=None):
+        embed = discord.Embed(
+            title="Manage your Temporary Channel",
+            description=f"Use the buttons below to manage your temporary channel.",
+            color=0x00ff00
+        )
+        if interaction:
+            await interaction.response.defer()
+            self.message = await interaction.followup.send(embed=embed, view=self)
+        else:
+            self.message = await self.channel.send(embed=embed, view=self)
 
     async def refresh_button_callback(self, interaction: discord.Interaction):
         channel_state_id = self.database.get_channel_state(interaction.channel.guild.id, interaction.channel.id)
@@ -529,14 +507,19 @@ class CreateControlView(discord.ui.View):
             return await error_handling.handle_channel_owner_error(interaction)
         await interaction.response.defer(ephemeral=True)
 
+        excluded_message_ids = []
+        if interaction.message:
+            excluded_message_ids.append(interaction.message.id)
+        if self.followup_view and self.followup_view.message:
+            excluded_message_ids.append(self.followup_view.message.id)
+
         # Fetch messages from the channel
         messages_to_delete = []
         async for message in interaction.channel.history(limit=None):
-            # Exclude the message with the last_followup_message_id
-            if message.id != self.last_followup_message_id and message.id != interaction.message.id:
+            if message.id not in excluded_message_ids:
                 messages_to_delete.append(message)
 
-        # Bulk delete the filtered messages
+    # Bulk delete the filtered messages
         if messages_to_delete:
             await interaction.channel.delete_messages(messages_to_delete)
 
@@ -589,57 +572,6 @@ class CreateControlView(discord.ui.View):
             self.database.set_owner_id(interaction.channel.id, interaction.user.id)
             await interaction.response.send_message("You are now the owner of this channel", ephemeral=True)
 
-    async def update_channel(self, interaction, new_state: ChannelState):
-        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
-            return await error_handling.handle_channel_owner_error(interaction)
-
-        await interaction.response.defer()
-
-        owner_id = self.database.get_owner_id(interaction.channel.id)
-        if not interaction.user.id == owner_id:
-            return await error_handling.handle_channel_owner_error(interaction)
-
-        if new_state == ChannelState.PUBLIC:
-            permissions = {'connect': True, 'view_channel': True}
-        elif new_state == ChannelState.LOCKED:
-            permissions = {'connect': False, 'view_channel': True}
-        elif new_state == ChannelState.HIDDEN:
-            permissions = {'view_channel': False}
-        else:
-            await error_handling.handle_global_error("Unexpected channel state")
-            return
-
-        # set permissions and channel_state in database
-        connected_users = [member for member in interaction.channel.members if not member.bot]
-        for user in connected_users:
-            await interaction.channel.set_permissions(user, connect=True, view_channel=True)
-        await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
-        self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
-
-        # update the control menu with wrong followup message. this gets a response to the user quicker but may break when spammed
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, self.last_followup_message_id)
-        await interaction.message.edit(embed=embed, view=view)
-
-        # Create or update followup message
-        text, view, embed = await create_followup_menu(self.bot, self.database, interaction.channel)
-
-        # Try to fetch the last follow-up message, if exists
-        followup_message = None
-        if self.last_followup_message_id:
-            try:
-                followup_message = await interaction.channel.fetch_message(self.last_followup_message_id)
-            except discord.NotFound:
-                followup_message = None
-        # Edit the followup message if it exists, otherwise send a new follow-up
-        if followup_message:
-            await followup_message.edit(content=text, view=view, embed=embed)
-        else:
-            followup_message = await interaction.followup.send(content=text, view=view, embed=embed)
-
-        # update the control menu with correct followup message
-        view, embed = await create_control_menu(self.bot, self.database, interaction.channel, followup_message.id)
-        await interaction.message.edit(embed=embed, view=view)
-
     async def lock_button_callback(self, interaction: discord.Interaction):
         await self.update_channel(
             interaction,
@@ -658,6 +590,43 @@ class CreateControlView(discord.ui.View):
             ChannelState.PUBLIC,
         )
 
+    async def update_channel(self, interaction, new_state: ChannelState):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
+        await interaction.response.defer()
+
+        if new_state == ChannelState.PUBLIC:
+            permissions = {'connect': True, 'view_channel': True}
+        elif new_state == ChannelState.LOCKED:
+            permissions = {'connect': False, 'view_channel': True}
+        elif new_state == ChannelState.HIDDEN:
+            permissions = {'view_channel': False}
+        else:
+            await error_handling.handle_global_error("Unexpected channel state")
+            return
+
+        # Set permissions and channel_state in database
+        connected_users = [member for member in interaction.channel.members if not member.bot]
+        for user in connected_users:
+            await interaction.channel.set_permissions(user, connect=True, view_channel=True)
+        await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
+        self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
+
+        # Update the control menu
+        self.clear_items()
+        self.setup_items()
+        await self.message.edit(view=self)
+
+        # Create or update followup message
+        if not self.followup_view:
+            self.followup_view = FollowupView(
+                bot=self.bot,
+                database=self.database,
+                channel=interaction.channel,
+            )
+        await self.followup_view.send_message(interaction)
+
 
 class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
     def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
@@ -667,32 +636,27 @@ class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
         self.channel = channel
 
         # Define the text inputs
-        channel_name = discord.ui.TextInput(
-            label=f"Channel Name",
+        self.channel_name = discord.ui.TextInput(
+            label="Channel Name",
             placeholder=f"{channel.name}",
             required=False,
             max_length=25
         )
-        user_limit = discord.ui.TextInput(
+        self.user_limit = discord.ui.TextInput(
             label="User Limit (Unlimited = 0)",
             placeholder=f"{channel.user_limit}",
             required=False,
             max_length=2
         )
 
-        self.add_item(channel_name)
-        self.add_item(user_limit)
+        self.add_item(self.channel_name)
+        self.add_item(self.user_limit)
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Create a new voice channel and add it to the database
-        channel_name = interaction.data["components"][0]["components"][0]["value"]
-        if channel_name == "":
-            channel_name = self.channel.name
-        user_limit = interaction.data["components"][1]["components"][0]["value"]
-        if user_limit == "":
-            user_limit = self.channel.user_limit
-        else:
-            user_limit = int(user_limit)
+        # Update the channel
+        channel_name = self.channel_name.value or self.channel.name
+        user_limit = self.user_limit.value or self.channel.user_limit
+        user_limit = int(user_limit) if user_limit.isdigit() else self.channel.user_limit
 
         await self.channel.edit(name=channel_name, user_limit=user_limit)
         await interaction.response.send_message("Your channel has been updated", ephemeral=True)
@@ -703,23 +667,6 @@ class ControlTempChannelsCog(commands.Cog):
         self.bot = bot
         self.database = database
         self.last_followup_message_id = None
-
-    @discord.app_commands.command(name="control", description="Control your temp channel")
-    @discord.app_commands.checks.has_permissions(manage_channels=True)
-    async def control(self, interaction: discord.Interaction):
-        try:
-            # Create an embed with options
-            view, embed = await create_control_menu(self.bot, self.database, temp_channel)
-            await interaction.channel.send(embed=embed, view=view)
-        except Exception as error:
-            await error_handling.handle_command_error(interaction, error)
-
-    @control.error
-    async def control_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.MissingPermissions):
-            await error_handling.handle_user_permission_error("manage_channels", interaction)
-        else:
-            await error_handling.handle_command_error(interaction, error)
 
 
 async def setup(bot: commands.Bot, database):
