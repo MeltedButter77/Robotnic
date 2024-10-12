@@ -355,7 +355,7 @@ class TempChannelsCog(commands.Cog):
 
             # Handle channel creation if user joined a hub channel
             if after.channel:
-                print(f"Member {member.display_name} joined {after.channel.name} in {member.guild.name}")
+                print(f"Member {member.display_name} ({member.name}) joined {after.channel.name} in {member.guild.name}")
                 channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
                 if after.channel.id in channel_hub_ids:
                     # Prepare data for channel creation
