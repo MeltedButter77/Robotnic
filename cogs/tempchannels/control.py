@@ -131,7 +131,7 @@ class FollowupView(discord.ui.View):
         allow_perms = {'connect': True, 'view_channel': True}
         ban_perms = {'connect': False, 'view_channel': False}
 
-        channel_state = ChannelState(self.database.get_channel_state(self.channel.guild.id, self.channel.id))
+        channel_state = ChannelState(self.database.get_channel_state_id(self.channel.guild.id, self.channel.id))
         if channel_state == ChannelState.PUBLIC:
             self.add_item(UpdatePermSelectMenu(self.bot, self.database, self.channel, ban_perms, "Select a user or role to BAN"))
             self.add_item(RemoveOverwritesSelectMenu(self.bot, self.database, self.channel, ban_perms, "Remove user or role from BANLIST"))
@@ -152,7 +152,7 @@ class FollowupView(discord.ui.View):
                     else:
                         cant_connect.append(member)
 
-        channel_state = ChannelState(self.database.get_channel_state(self.channel.guild.id, self.channel.id))
+        channel_state = ChannelState(self.database.get_channel_state_id(self.channel.guild.id, self.channel.id))
         # Determine the channel state
         titles = {
             ChannelState.PUBLIC: "🌐 Your Channel is `PUBLIC`",
@@ -373,11 +373,11 @@ class CreateControlView(discord.ui.View):
         self.setup_items()
 
     def setup_items(self):
-        channel_state = self.database.get_channel_state(self.channel.guild.id, self.channel.id)
+        channel_state = self.database.get_channel_state_id(self.channel.guild.id, self.channel.id)
 
         # Define buttons and their callbacks
         lock_button = discord.ui.Button(
-            label="Lock",
+            label="",
             emoji="🔒",
             style=discord.ButtonStyle.primary,
             row=1,
@@ -386,7 +386,7 @@ class CreateControlView(discord.ui.View):
         lock_button.callback = self.lock_button_callback
 
         hide_button = discord.ui.Button(
-            label="Hide",
+            label="",
             emoji="🙈",
             style=discord.ButtonStyle.primary,
             row=1,
@@ -395,7 +395,7 @@ class CreateControlView(discord.ui.View):
         hide_button.callback = self.hide_button_callback
 
         public_button = discord.ui.Button(
-            label="Public",
+            label="",
             emoji="🌐",
             style=discord.ButtonStyle.primary,
             row=1,
@@ -403,38 +403,38 @@ class CreateControlView(discord.ui.View):
         )
         public_button.callback = self.public_button_callback
 
-        refresh_button = discord.ui.Button(
-            label="Refresh",
-            emoji="🔄",
-            style=discord.ButtonStyle.secondary,
-            row=1
-        )
-        refresh_button.callback = self.refresh_button_callback
+        # refresh_button = discord.ui.Button(
+        #     label="",
+        #     emoji="🔄",
+        #     style=discord.ButtonStyle.secondary,
+        #     row=1
+        # )
+        # refresh_button.callback = self.refresh_button_callback
 
         modify_button = discord.ui.Button(
-            label="Modify",
+            label="",
             emoji="🔧",
             style=discord.ButtonStyle.secondary
         )
         modify_button.callback = self.modify_button_callback
 
         kick_button = discord.ui.Button(
-            label="Kick",
+            label="",
             emoji="👢",
             style=discord.ButtonStyle.secondary
         )
         kick_button.callback = self.kick_button_callback
 
         clear_button = discord.ui.Button(
-            label="Clear Channel Messages",
-            emoji="🎫",
+            label="",
+            emoji="🧽",
             style=discord.ButtonStyle.danger,
             row=0
         )
         clear_button.callback = self.clear_button_callback
 
         give_button = discord.ui.Button(
-            label="Give Channel",
+            label="",
             emoji="🎁",
             style=discord.ButtonStyle.success,
             row=2
@@ -442,17 +442,17 @@ class CreateControlView(discord.ui.View):
         give_button.callback = self.give_button_callback
 
         claim_button = discord.ui.Button(
-            label="Claim Channel",
-            emoji="🎫",
+            label="",
+            emoji="👑",
             style=discord.ButtonStyle.success,
             row=2
         )
         claim_button.callback = self.claim_button_callback
 
         delete_button = discord.ui.Button(
-            label="Delete",
-            emoji="🚫",
-            style=discord.ButtonStyle.secondary,
+            label="",
+            emoji="🗑️",
+            style=discord.ButtonStyle.danger,
             row=2
         )
         delete_button.callback = self.delete_button_callback
@@ -464,30 +464,39 @@ class CreateControlView(discord.ui.View):
         self.add_item(public_button)
         self.add_item(hide_button)
         self.add_item(lock_button)
-        self.add_item(refresh_button)
+        # self.add_item(refresh_button)
         self.add_item(give_button)
         self.add_item(claim_button)
         self.add_item(delete_button)
 
     async def send_initial_message(self, interaction: discord.Interaction=None):
         embed = discord.Embed(
-            title="Manage your Temporary Channel",
-            description=f"Use the buttons below to manage your temporary channel.",
+            title="Channel Settings",
+            description=f"",
             color=0x00ff00
         )
+        embed.add_field(name="🔧 Modify", value="", inline=True)
+        embed.add_field(name="👢 Kick", value="", inline=True)
+        embed.add_field(name="🧽 Clear", value="", inline=True)
+        embed.add_field(name="🌐 Public", value="", inline=True)
+        embed.add_field(name="🙈 Hide", value="", inline=True)
+        embed.add_field(name="🔒 Lock", value="", inline=True)
+        embed.add_field(name="🎁 Give", value="", inline=True)
+        embed.add_field(name="👑 Claim", value="", inline=True)
+        embed.add_field(name="🗑️ Delete", value="", inline=True)
+
         if interaction:
             await interaction.response.defer()
             self.message = await interaction.followup.send(embed=embed, view=self)
         else:
             self.message = await self.channel.send(embed=embed, view=self)
 
-    async def refresh_button_callback(self, interaction: discord.Interaction):
-        channel_state_id = self.database.get_channel_state(interaction.channel.guild.id, interaction.channel.id)
-        channel_state = ChannelState(channel_state_id)
-        await self.update_channel(
-            interaction,
-            channel_state,
-        )
+    # async def refresh_button_callback(self, interaction: discord.Interaction):
+    #     channel_state = ChannelState(self.database.get_channel_state_id(interaction.channel.guild.id, interaction.channel.id))
+    #     await self.update_channel(
+    #         interaction,
+    #         channel_state,
+    #     )
 
     async def modify_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:

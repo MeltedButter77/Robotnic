@@ -1,3 +1,4 @@
+import discord
 from discord.ext import commands
 import os
 import json
@@ -9,6 +10,7 @@ config_path = os.path.join(base_directory, 'config.json')
 with open(config_path) as config_file:
     config = json.load(config_file)
 
+
 class UtilCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -17,6 +19,24 @@ class UtilCog(commands.Cog):
     async def ping(self, ctx: commands.Context):
         """Responds with 'pong' to check bot responsiveness."""
         await ctx.send('pong')
+
+    @discord.app_commands.command(
+        name="support",
+        description="Get a link to the support server",
+    )
+    async def support(self, interaction: discord.Interaction):
+        """Command to supply the support server link"""
+        embed = discord.Embed(
+            title="Thanks for reaching out!",
+        )
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(
+                label="Support Server",
+                url=f"{config["support_server"]}",
+            )
+        )
+        await interaction.response.send_message(embed=embed, view=view)
 
 
 async def setup(bot):

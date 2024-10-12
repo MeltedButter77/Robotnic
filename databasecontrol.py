@@ -79,7 +79,7 @@ class Database:
         if self.connection:
             self.connection.close()
 
-    def get_channel_state(self, guild_id: int, channel_id: int) -> int:
+    def get_channel_state_id(self, guild_id: int, channel_id: int) -> int:
         """Retrieve the channel state of a temporary channel."""
         with self.connection:
             cursor = self.connection.cursor()
