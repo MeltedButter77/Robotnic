@@ -33,7 +33,7 @@ class UtilCog(commands.Cog):
         view.add_item(
             discord.ui.Button(
                 label="Support Server",
-                url=f"{config["support_server"]}",
+                url=f"{config['support_server']}",
             )
         )
         await interaction.response.send_message(embed=embed, view=view)
