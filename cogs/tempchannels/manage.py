@@ -147,7 +147,7 @@ class SelectCreatorMenu(Select):
     async def callback(self, interaction: discord.Interaction):
         """Handle the selection of a channel creator."""
         if self.values[0] == "None":
-            await interaction.response.send_message("Error: No creators available for select menu.", ephemeral=True)
+            await interaction.response.send_message("Error: No creators available for select menu.", ephemeral=True, delete_after=10)
             return
 
         selected_channel_id = int(self.values[0])

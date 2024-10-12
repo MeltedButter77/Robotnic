@@ -542,11 +542,11 @@ class CreateControlView(discord.ui.View):
             if message.id not in excluded_message_ids:
                 messages_to_delete.append(message)
 
-    # Bulk delete the filtered messages
+        # Bulk delete the filtered messages
         if messages_to_delete:
             await interaction.channel.delete_messages(messages_to_delete)
 
-        await interaction.followup.send(f"Deleted {len(messages_to_delete)} messages.", ephemeral=True)
+        await interaction.followup.send(f"Deleted {len(messages_to_delete)} messages.", ephemeral=True, delete_after=10)
 
     async def delete_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
@@ -574,7 +574,7 @@ class CreateControlView(discord.ui.View):
         except asyncio.TimeoutError:
             try:
                 # If the user does not respond in time, send a timeout message
-                await interaction.followup.send("Channel deletion timed out. No action was taken.", ephemeral=True)
+                await interaction.followup.send("Channel deletion timed out. No action was taken.", ephemeral=True, delete_after=10)
             except e:
                 pass
 
@@ -582,18 +582,18 @@ class CreateControlView(discord.ui.View):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
             return await error_handling.handle_channel_owner_error(interaction)
 
-        await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True)
+        await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True, delete_after=10)
 
     async def claim_button_callback(self, interaction: discord.Interaction):
         owner_id = self.database.get_owner_id(interaction.channel.id)
         if owner_id is not None:
             owner = await interaction.guild.fetch_member(owner_id)
-            await interaction.response.send_message(f"This channel is already owned by {owner.mention}", ephemeral=True)
+            await interaction.response.send_message(f"This channel is already owned by {owner.mention}", ephemeral=True, delete_after=10)
         elif interaction.user not in interaction.channel.members:
-            await interaction.response.send_message("You must be connected to this channel to claim it", ephemeral=True)
+            await interaction.response.send_message("You must be connected to this channel to claim it", ephemeral=True, delete_after=10)
         elif owner_id is None and interaction.user in interaction.channel.members:
             self.database.set_owner_id(interaction.channel.id, interaction.user.id)
-            await interaction.response.send_message("You are now the owner of this channel", ephemeral=True)
+            await interaction.response.send_message("You are now the owner of this channel", ephemeral=True, delete_after=10)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
         await self.update_channel(
@@ -681,7 +681,7 @@ class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
         user_limit = self.user_limit.value or str(self.channel.user_limit)
 
         if not user_limit.isnumeric():
-            await interaction.response.send_message("User limit must be a number", ephemeral=True)
+            await interaction.response.send_message("User limit must be a number", ephemeral=True, delete_after=10)
             return
 
         await self.channel.edit(name=channel_name, user_limit=int(user_limit))
