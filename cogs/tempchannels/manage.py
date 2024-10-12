@@ -1,3 +1,5 @@
+import asyncio
+
 from discord import app_commands
 import databasecontrol
 from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
@@ -341,44 +343,62 @@ class TempChannelsCog(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         """Listener to handle creation and deletion of temporary channels."""
         try:
+            tasks = []
+
+            # Handle channel deletion if user left a channel
             if before.channel:
-                # Delete temporary channel if empty
                 if self.database.is_temp_channel(before.channel.id) and len(before.channel.members) == 0:
                     left_channel = self.bot.get_channel(before.channel.id)
                     if left_channel:
-                        try:
-                            await left_channel.delete()
-                        except discord.Forbidden:
-                            await handle_bot_permission_error("manage_channels", user=member, channel=before.channel)
-                            pass
-                        except Exception as e:
-                            await handle_global_error("on_voice_state_update", e)
-                            pass
+                        tasks.append(self.delete_channel_async(left_channel, member, before.channel))
                     self.database.delete_temp_channel(before.channel.id)
 
+            # Handle channel creation if user joined a hub channel
             if after.channel:
-                # Create temporary channel if member joins a hub channel
                 channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
                 if after.channel.id in channel_hub_ids:
+                    # Prepare data for channel creation
+                    child_name_template = self.database.get_child_name(after.channel.id)
+                    existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, after.channel.id))
 
-                    child_name = str(self.database.get_child_name(after.channel.id))
-
-                    numbers = set(self.database.get_temp_channel_numbers(member.guild.id, after.channel.id))
+                    # Find the next available channel number
                     count = 1
-                    while count in numbers:
+                    while count in existing_numbers:
                         count += 1
 
-                    formatted_child_name = child_name.format(count=count, user=member.display_name)
-                    user_limit = self.database.get_user_limit(after.channel.id)
-                    if user_limit is None:
-                        user_limit = 0
-                    # Create channel and check for permissions
+                    # Format the child channel name
+                    formatted_child_name = child_name_template.format(count=count, user=member.display_name)
+                    user_limit = self.database.get_user_limit(after.channel.id) or 0
+
                     try:
-                        channel = await member.guild.create_voice_channel(
-                            name=formatted_child_name,
-                            category=after.channel.category,
-                            user_limit=user_limit,
+                        # Start creating the channel asynchronously
+                        create_channel_task = asyncio.create_task(
+                            member.guild.create_voice_channel(
+                                name=formatted_child_name,
+                                category=after.channel.category,
+                                user_limit=user_limit,
+                            )
                         )
+
+                        # While the channel is being created, run other independent tasks
+                        if tasks:
+                            await asyncio.gather(*tasks)
+                            tasks = []  # Reset tasks list after running them
+
+                        # Wait for the channel to be created
+                        channel = await create_channel_task
+
+                        # Add the new channel to the database
+                        self.database.add_temp_channel(
+                            member.guild.id, channel.id, after.channel.id, member.id, count
+                        )
+
+                        # Move the user to the new channel
+                        await member.move_to(channel)
+
+                        # Schedule sending the control view message concurrently
+                        tasks.append(self.send_control_view_async(channel))
+
                     except discord.Forbidden:
                         await handle_bot_permission_error("manage_channels", user=member, channel=after.channel)
                         return
@@ -386,30 +406,30 @@ class TempChannelsCog(commands.Cog):
                         await handle_global_error("on_voice_state_update", e)
                         return
 
-                    try:
-                        self.database.add_temp_channel(
-                            member.guild.id, channel.id, after.channel.id, member.id, count
-                        )
-                        await member.move_to(channel)
-                    except Exception as e:
-                        await channel.delete()
-                        await handle_global_error("on_voice_state_update", e)
-
-                    # This will be toggleable in the future via a config option for channel creators
-                    # Create an embed with options within the channel
-                    try:
-                        ControlView = cogs.tempchannels.control.CreateControlView(self.bot, self.database, channel)
-                        await ControlView.send_initial_message()
-                    except discord.Forbidden:
-                        await handle_bot_permission_error("manage_channels", user=member, channel=channel)
-                        pass
-                    except Exception as e:
-                        await handle_global_error("on_voice_state_update", e)
-                        pass
+            # Run any remaining tasks concurrently
+            if tasks:
+                await asyncio.gather(*tasks)
 
         except Exception as error:
             print(f"Error in on_voice_state_update: {error}")
-            await handle_global_error("on_voice_state_update")
+            await handle_global_error("on_voice_state_update", error)
+
+    async def delete_channel_async(self, channel, member, before_channel):
+        try:
+            await channel.delete()
+        except discord.Forbidden:
+            await handle_bot_permission_error("manage_channels", user=member, channel=before_channel)
+        except Exception as e:
+            await handle_global_error("delete_channel_async", e)
+
+    async def send_control_view_async(self, channel):
+        try:
+            ControlView = cogs.tempchannels.control.CreateControlView(self.bot, self.database, channel)
+            await ControlView.send_initial_message()
+        except discord.Forbidden:
+            await handle_bot_permission_error("manage_channels", user=None, channel=channel)
+        except Exception as e:
+            await handle_global_error("send_control_view_async", e)
 
     @discord.app_commands.command(
         name="setup_creators",
