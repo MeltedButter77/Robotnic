@@ -1,8 +1,6 @@
-import asyncio
 import json
 import os
 import discord
-from discord import app_commands
 from discord.ext import commands
 import discord.ui
 import databasecontrol
@@ -108,11 +106,7 @@ class KickSelectMenu(discord.ui.Select):
                 description=f"Kicked {len(members)} member(s) from your channel.",
                 color=0x00ff00
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            if self.view.message:
-                await self.view.message.delete()
-            await asyncio.sleep(10)
-            await interaction.delete_original_response()
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
 
 
 class FollowupView(discord.ui.View):
@@ -403,14 +397,6 @@ class CreateControlView(discord.ui.View):
         )
         public_button.callback = self.public_button_callback
 
-        # refresh_button = discord.ui.Button(
-        #     label="",
-        #     emoji="🔄",
-        #     style=discord.ButtonStyle.secondary,
-        #     row=1
-        # )
-        # refresh_button.callback = self.refresh_button_callback
-
         modify_button = discord.ui.Button(
             label="",
             emoji="🔧",
@@ -464,39 +450,67 @@ class CreateControlView(discord.ui.View):
         self.add_item(public_button)
         self.add_item(hide_button)
         self.add_item(lock_button)
-        # self.add_item(refresh_button)
         self.add_item(give_button)
         self.add_item(claim_button)
         self.add_item(delete_button)
 
     async def send_initial_message(self, interaction: discord.Interaction=None):
-        embed = discord.Embed(
-            title="Channel Settings",
-            description=f"",
+        # First embed
+        icons_embed = discord.Embed(
+            title="",
+            description="",
             color=0x00ff00
         )
-        embed.add_field(name="🔧 Modify", value="", inline=True)
-        embed.add_field(name="👢 Kick", value="", inline=True)
-        embed.add_field(name="🧽 Clear", value="", inline=True)
-        embed.add_field(name="🌐 Public", value="", inline=True)
-        embed.add_field(name="🙈 Hide", value="", inline=True)
-        embed.add_field(name="🔒 Lock", value="", inline=True)
-        embed.add_field(name="🎁 Give", value="", inline=True)
-        embed.add_field(name="👑 Claim", value="", inline=True)
-        embed.add_field(name="🗑️ Delete", value="", inline=True)
+        icons_embed.add_field(name="🔧 Modify", value="", inline=True)
+        icons_embed.add_field(name="👢 Kick", value="", inline=True)
+        icons_embed.add_field(name="🧽 Clear", value="", inline=True)
+        icons_embed.add_field(name="🌐 Public", value="", inline=True)
+        icons_embed.add_field(name="🙈 Hide", value="", inline=True)
+        icons_embed.add_field(name="🔒 Lock", value="", inline=True)
+        icons_embed.add_field(name="🎁 Give", value="", inline=True)
+        icons_embed.add_field(name="👑 Claim", value="", inline=True)
+        icons_embed.add_field(name="🗑️ Delete", value="", inline=True)
 
+        # Second embed (additional settings or information)
+        info_embed = discord.Embed(
+            title=f"Channel Settings",
+            description="",
+            color=0x90B8FF  # light blue
+        )
+
+        # owner_id = self.database.get_owner_id(self.channel.id)
+        # if owner_id is not None:
+        #     owner = await self.channel.guild.fetch_member(owner_id)
+        #     owner = owner.mention
+        # else:
+        #     owner = "None"
+        # info_embed.add_field(name="Channel Owner", value=f"{owner}", inline=False)
+        #
+        # limit = self.channel.user_limit
+        # if limit == 0:
+        #     limit = "♾️ Unlimited"
+        # info_embed.add_field(name="Limit", value=f"{limit}", inline=True)
+        #
+        # region = self.channel.rtc_region
+        # if region is None:
+        #     region = "🌍 Automatic"
+        # info_embed.add_field(name="Region", value=f"{region}", inline=True)
+
+        # channel_state = ChannelState(self.database.get_channel_state_id(self.channel.guild.id, self.channel.id))
+        # if channel_state == ChannelState.PUBLIC:
+        #     channel_state = "🌐 Public"
+        # elif channel_state == ChannelState.LOCKED:
+        #     channel_state = "🔒 Locked"
+        # elif channel_state == ChannelState.HIDDEN:
+        #     channel_state = "🙈 Hidden"
+        # info_embed.add_field(name="State", value=f"{channel_state}", inline=True)
+
+        # Sending both embeds in a single message
         if interaction:
             await interaction.response.defer()
-            self.message = await interaction.followup.send(embed=embed, view=self)
+            self.message = await interaction.followup.send(embeds=[info_embed, icons_embed], view=self)
         else:
-            self.message = await self.channel.send(embed=embed, view=self)
-
-    # async def refresh_button_callback(self, interaction: discord.Interaction):
-    #     channel_state = ChannelState(self.database.get_channel_state_id(interaction.channel.guild.id, interaction.channel.id))
-    #     await self.update_channel(
-    #         interaction,
-    #         channel_state,
-    #     )
+            self.message = await self.channel.send(embeds=[info_embed, icons_embed], view=self)
 
     async def modify_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
@@ -664,11 +678,14 @@ class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
     async def on_submit(self, interaction: discord.Interaction):
         # Update the channel
         channel_name = self.channel_name.value or self.channel.name
-        user_limit = self.user_limit.value or self.channel.user_limit
-        user_limit = int(user_limit) if user_limit.isdigit() else self.channel.user_limit
+        user_limit = self.user_limit.value or str(self.channel.user_limit)
 
-        await self.channel.edit(name=channel_name, user_limit=user_limit)
-        await interaction.response.send_message("Your channel has been updated", ephemeral=True)
+        if not user_limit.isnumeric():
+            await interaction.response.send_message("User limit must be a number", ephemeral=True)
+            return
+
+        await self.channel.edit(name=channel_name, user_limit=int(user_limit))
+        await interaction.response.send_message("Your channel has been updated", ephemeral=True, delete_after=10)
 
 
 class ControlTempChannelsCog(commands.Cog):
