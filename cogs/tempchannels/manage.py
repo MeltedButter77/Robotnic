@@ -1,6 +1,7 @@
 from discord import app_commands
 import databasecontrol
-from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, handle_user_permission_error
+from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
+    handle_user_permission_error
 import cogs.tempchannels.control
 from typing import List
 import discord
@@ -20,155 +21,93 @@ with open(config_path) as config_file:
     config = json.load(config_file)
 
 
-def create_channel_select_menu(database, bot, guild_id):
-    # Create menu with channel hubs
-    channel_ids = database.get_temp_channel_hubs(guild_id)
-    channels = [channel for channel_id in channel_ids if (channel := bot.get_channel(channel_id)) is not None]
-    view = CreatorSelectView(
-        menu_channels=channels,
-        create_button=True,
-        website_button=True,
-        database=database,
-        bot=bot
-    )
-
-    embed = discord.Embed(
-        title="Setup or Modify Channel Creators",
-        description="Customise your channel creators to your specific need.",
-        color=0x00ff00
-    )
-    if not channels:
-        embed.add_field(
-            name="No Current Creators",
-            value="There are no channel creators set up.",
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="Current Creators:",
-            value="",
-            inline=False
-        )
-    for i, channel in enumerate(channels):
-        child_name = database.get_child_name(channel.id)
-        user_limit = database.get_user_limit(channel.id)
-        if user_limit == 0:
-            user_limit = "Unlimited"
-        embed.add_field(
-            name=f"#{i + 1}. {channel.mention}",
-            value=f"Child Channel Names: `{child_name}`\nUser Limit: `{user_limit}`\n",
-            inline=False
-        )
-    return view, embed
-
-
-class CreatorSelectView(View):
+class SelectCreatorView(View):
     """A view containing buttons and menus for managing channel creators."""
 
     def __init__(self,
-                 menu_channels: List[discord.TextChannel] = None,
-                 create_button: bool = False,
-                 website_button: bool = False,
-                 back_button: bool = False,
-                 modify_button: bool = False,
-                 delete_button: bool = False,
-                 database: databasecontrol.Database = None,
                  bot: commands.Bot = None,
-                 selected_channel_id: int = None
+                 database: databasecontrol.Database = None,
                  ):
         super().__init__()
-        self.selected_channel_id = selected_channel_id
         self.database = database
         self.bot = bot
 
-        if menu_channels:
-            self.add_item(CreatorSelectMenu(menu_channels, database=database, bot=bot))
+        self.channels = None
+        self.setup_items()
 
-        if modify_button:
-            button = discord.ui.Button(
-                label="Modify",
-                style=discord.ButtonStyle.success
-            )
-            button.callback = self.modify_button_callback
-            self.add_item(button)
+    def setup_items(self):
+        if self.channels:
+            self.add_item(SelectCreatorMenu(self.bot, self.database, self.channels))
 
-        if create_button:
-            button = discord.ui.Button(
-                label="Create new Creator",
-                style=discord.ButtonStyle.success
-            )
-            button.callback = self.create_button_callback
-            self.add_item(button)
+        create_button = discord.ui.Button(
+            label="Create new Creator",
+            style=discord.ButtonStyle.success
+        )
+        create_button.callback = self.create_button_callback
+        self.add_item(create_button)
 
-        if delete_button:
-            button = discord.ui.Button(
-                label="Delete",
-                style=discord.ButtonStyle.danger
-            )
-            button.callback = self.delete_creator_button_callback
-            self.add_item(button)
-
-        if website_button and config:
-            self.add_item(discord.ui.Button(
+        if config['website']:
+            website_button = discord.ui.Button(
                 label="Website",
                 url=config['website'],
                 style=discord.ButtonStyle.link
-            ))
-
-        if back_button:
-            button = discord.ui.Button(
-                label="Back",
-                style=discord.ButtonStyle.secondary
             )
-            button.callback = self.back_button_callback
-            self.add_item(button)
+            self.add_item(website_button)
+
+    async def send_message(self, interaction: discord.Interaction, edit: bool = False):
+        # Create menu with channel hubs
+        channel_ids = self.database.get_temp_channel_hubs(interaction.guild.id)
+        self.channels = [channel for channel_id in channel_ids if
+                         (channel := self.bot.get_channel(channel_id)) is not None]
+        self.clear_items()
+        self.setup_items()
+
+        embed = discord.Embed(
+            title="Setup or Modify Channel Creators",
+            description="Customise your channel creators to your specific need.",
+            color=0x00ff00
+        )
+        if not self.channels:
+            embed.add_field(
+                name="No Current Creators",
+                value="There are no channel creators set up.",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="Current Creators:",
+                value="",
+                inline=False
+            )
+        for i, channel in enumerate(self.channels):
+            child_name = self.database.get_child_name(channel.id)
+            user_limit = self.database.get_user_limit(channel.id)
+            if user_limit == 0:
+                user_limit = "Unlimited"
+            embed.add_field(
+                name=f"#{i + 1}. {channel.mention}",
+                value=f"Child Channel Names: `{child_name}`\nUser Limit: `{user_limit}`\n",
+                inline=False
+            )
+
+        if edit:
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.send_message(embed=embed, view=self, ephemeral=True)
 
     async def create_button_callback(self, interaction: discord.Interaction):
         """Callback for the 'Create new Creator' button."""
         modal = CreateCreatorModal(self.bot, self.database)
         await interaction.response.send_modal(modal)
 
-    async def back_button_callback(self, interaction: discord.Interaction):
-        """Callback for the 'Back' button."""
-        # Create an embed with options
-        view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
-        await interaction.response.edit_message(embed=embed, view=view)
 
-    async def modify_button_callback(self, interaction: discord.Interaction):
-        """Callback for the 'Modify existing creators' button."""
-        selected_channel = self.bot.get_channel(self.selected_channel_id)
-        modal = EditCreatorModal(self.bot, self.database, selected_channel)
-        await interaction.response.send_modal(modal)
-
-    async def delete_creator_button_callback(self, interaction: discord.Interaction):
-        """Callback for the 'Delete creator' button."""
-
-        # Deletes channel from discord before deleting from db
-        selected_channel = self.bot.get_channel(self.selected_channel_id)
-        guild_id = selected_channel.guild.id
-        channel_id = selected_channel.id
-        try:
-            await selected_channel.delete()
-        except discord.Forbidden:
-            await handle_bot_permission_error("manage_channels", interaction)
-            return
-        except Exception as e:
-            await handle_global_error("on_voice_state_update", e)
-            return
-        self.database.delete_temp_channel_hub(guild_id, channel_id)
-
-        # Create an embed with options
-        view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
-        await interaction.response.edit_message(embed=embed, view=view)
-
-
-class CreatorSelectMenu(Select):
+class SelectCreatorMenu(Select):
     """A dropdown menu for selecting a channel creator to edit."""
 
     def __init__(self,
-                 channels: List[discord.TextChannel],
+                 bot: commands.Bot,
                  database: databasecontrol.Database,
-                 bot: commands.Bot
+                 channels: List[discord.TextChannel],
                  ):
         self.database = database
         self.bot = bot
@@ -212,10 +151,7 @@ class CreatorSelectMenu(Select):
         selected_channel_id = int(self.values[0])
         selected_channel = self.bot.get_channel(selected_channel_id)
 
-        # Create an embed with channel information
-        view, embed = create_channel_edit_menu(self.database, self.bot, selected_channel)
-        view.selected_channel_id = int(self.values[0])
-        await interaction.response.edit_message(embed=embed, view=view)
+        await EditCreatorView(self.bot, self.database, selected_channel).send_message(interaction)
 
 
 class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
@@ -259,37 +195,91 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
         self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
 
         # Create an embed with channel information
-        view, embed = create_channel_edit_menu(self.database, self.bot, channel)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await EditCreatorView(self.bot, self.database, channel).send_message(interaction)
 
 
-def create_channel_edit_menu(database, bot, selected_channel):
-    # Update the view to channel editor
-    view = CreatorSelectView(
-        modify_button=True,
-        back_button=True,
-        delete_button=True,
-        database=database,
-        bot=bot
-    )
+class EditCreatorView(View):
+    """A view containing buttons and menus for managing channel creators."""
 
-    embed = discord.Embed(
-        title=f"#{selected_channel.name}",
-        description="",
-        color=0x00ff00
-    )
-    embed.add_field(name="Name", value=selected_channel.name, inline=True)
-    embed.add_field(name="Mention", value=selected_channel.mention, inline=True)
-    embed.add_field(name="ID", value=str(selected_channel.id), inline=True)
-    category = f"<#{selected_channel.category_id}>" if selected_channel.category_id else "None"
-    embed.add_field(name="Category", value=category, inline=True)
-    child_name = database.get_child_name(selected_channel.id)
-    embed.add_field(name="Child Names", value=child_name, inline=True)
-    user_limit = database.get_user_limit(selected_channel.id)
-    if user_limit == 0:
-        user_limit = "Unlimited"
-    embed.add_field(name="User Limit", value=user_limit, inline=True)
-    return view, embed
+    def __init__(self,
+                 bot: commands.Bot = None,
+                 database: databasecontrol.Database = None,
+                 selected_channel: discord.TextChannel = None
+                 ):
+        super().__init__()
+        self.database = database
+        self.bot = bot
+        self.selected_channel = selected_channel
+
+        delete_button = discord.ui.Button(
+            label="Delete",
+            style=discord.ButtonStyle.danger
+        )
+        delete_button.callback = self.delete_creator_button_callback
+        self.add_item(delete_button)
+
+        modify_button = discord.ui.Button(
+            label="Modify",
+            style=discord.ButtonStyle.success
+        )
+        modify_button.callback = self.modify_button_callback
+        self.add_item(modify_button)
+
+        back_button = discord.ui.Button(
+            label="Back",
+            style=discord.ButtonStyle.secondary
+        )
+        back_button.callback = self.back_button_callback
+        self.add_item(back_button)
+
+    async def send_message(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"#{self.selected_channel.name}",
+            description="",
+            color=0x00ff00
+        )
+        embed.add_field(name="Name", value=self.selected_channel.name, inline=True)
+        embed.add_field(name="Mention", value=self.selected_channel.mention, inline=True)
+        embed.add_field(name="ID", value=str(self.selected_channel.id), inline=True)
+        category = f"<#{self.selected_channel.category_id}>" if self.selected_channel.category_id else "None"
+        embed.add_field(name="Category", value=category, inline=True)
+        child_name = self.database.get_child_name(self.selected_channel.id)
+        embed.add_field(name="Child Names", value=child_name, inline=True)
+        user_limit = self.database.get_user_limit(self.selected_channel.id)
+        if user_limit == 0:
+            user_limit = "Unlimited"
+        embed.add_field(name="User Limit", value=user_limit, inline=True)
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def back_button_callback(self, interaction: discord.Interaction):
+        """Callback for the 'Back' button."""
+        # Create an embed with options
+        await SelectCreatorView(self.bot, self.database).send_message(interaction, edit=True)
+
+    async def modify_button_callback(self, interaction: discord.Interaction):
+        """Callback for the 'Modify existing creators' button."""
+        modal = EditCreatorModal(self.bot, self.database, self.selected_channel)
+        await interaction.response.send_modal(modal)
+
+    async def delete_creator_button_callback(self, interaction: discord.Interaction):
+        """Callback for the 'Delete creator' button."""
+
+        # Deletes channel from discord before deleting from db
+        guild_id = self.selected_channel.guild.id
+        channel_id = self.selected_channel.id
+        try:
+            await self.selected_channel.delete()
+        except discord.Forbidden:
+            await handle_bot_permission_error("manage_channels", interaction)
+            return
+        except Exception as e:
+            await handle_global_error("on_voice_state_update", e)
+            return
+        self.database.delete_temp_channel_hub(guild_id, channel_id)
+
+        # Create an embed with options
+        await SelectCreatorView(self.bot, self.database).send_message(interaction, edit=True)
 
 
 class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
@@ -328,9 +318,7 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
         self.database.add_temp_channel_hub(interaction.guild.id, self.selected_channel.id, temp_child_name, user_limit)
 
         # Create an embed with channel information
-        view, embed = create_channel_edit_menu(self.database, self.bot, self.selected_channel)
-        view.selected_channel_id = int(self.selected_channel.id)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await EditCreatorView(self.bot, self.database, self.selected_channel).send_message(interaction)
 
 
 class TempChannelsCog(commands.Cog):
@@ -432,8 +420,7 @@ class TempChannelsCog(commands.Cog):
         """Command to set up channel creators."""
         try:
             # Create an embed with options
-            view, embed = create_channel_select_menu(self.database, self.bot, interaction.guild.id)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await SelectCreatorView(self.bot, self.database).send_message(interaction)
         except Exception as error:
             await handle_command_error(interaction, error)
 
