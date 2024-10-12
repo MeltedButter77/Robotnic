@@ -28,7 +28,9 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
 
-        await self.change_presence(activity=discord.Game(name="on Discord"))
+        server_count = len(bot.guilds)
+        await bot.change_presence(activity=discord.CustomActivity(name=f"Online in {server_count} Servers"))
+
         await self.setup_cogs()
         await self.send_notification()
 
