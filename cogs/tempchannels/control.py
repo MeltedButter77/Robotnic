@@ -1,6 +1,5 @@
 import json
 import os
-import time
 import discord
 from discord.ext import commands
 import discord.ui
@@ -287,7 +286,15 @@ class FollowupView(discord.ui.View):
             self.add_item(UpdatePermSelectMenu(self.bot, self.database, self.channel, allow_perms, "Select a user or role to ALLOW"))
             self.add_item(RemoveOverwritesSelectMenu(self.bot, self.database, self.channel, allow_perms, "Remove user or role from ALLOWLIST"))
 
+        refresh_button = discord.ui.Button(emoji="🔄", label="Refresh", style=discord.ButtonStyle.blurple, custom_id="refresh")
+        refresh_button.callback = self.send_message
+        self.add_item(refresh_button)
+
     async def send_message(self, interaction: discord.Interaction=None):
+        # Defer the interaction if it's not already responded to
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+
         # Separate members who can and can't connect
         can_connect = []
         cant_connect = []
