@@ -358,6 +358,7 @@ class TempChannelsCog(commands.Cog):
                     # If owner leaves the channel, set owner to None
                     elif self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
                         self.database.set_owner_id(left_channel.id, None)
+                        await cogs.tempchannels.control.update_info_embed(self.database, left_channel)
 
             # Handle channel creation if user joined a hub channel
             if joined_channel:

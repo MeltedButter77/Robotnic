@@ -22,6 +22,53 @@ class ChannelState(Enum):
     HIDDEN = 2
 
 
+async def create_info_embed(database: databasecontrol.Database, channel):
+    embed = discord.Embed(title=f"#{channel.name}", color=discord.Color.blue())
+
+    owner_id = database.get_owner_id(channel.id)
+    if owner_id:
+        owner = await channel.guild.fetch_member(owner_id)
+        if owner is not None:
+            owner = owner.mention
+        else:
+            owner = "None, available to claim"
+    else:
+        owner = "None, available to claim"
+    embed.add_field(name="Owner", value=f"{owner}", inline=True)
+
+    # limit = self.channel.user_limit
+    # if limit == 0:
+    #     limit = "♾️ Unlimited"
+    # info_embed.add_field(name="Limit", value=f"{limit}", inline=True)
+    #
+    # region = self.channel.rtc_region
+    # if region is None:
+    #     region = "🌍 Automatic"
+    # info_embed.add_field(name="Region", value=f"{region}", inline=True)
+
+    channel_state_id = database.get_channel_state_id(channel.guild.id, channel.id)
+    if channel_state_id == ChannelState.PUBLIC.value:
+        channel_state = "🌐 Public"
+    elif channel_state_id == ChannelState.LOCKED.value:
+        channel_state = "🔒 Locked"
+    elif channel_state_id == ChannelState.HIDDEN.value:
+        channel_state = "🙈 Hidden"
+    else:
+        channel_state = "None"
+    embed.add_field(name="Access", value=f"{channel_state}", inline=True)
+
+    return embed
+
+
+async def update_info_embed(database: databasecontrol.Database, channel):
+    control_message = None
+    async for message in channel.history(limit=1, oldest_first=True):
+        control_message = message
+    embeds = control_message.embeds
+    embeds[0] = await create_info_embed(database, channel)
+    await control_message.edit(embeds=embeds)
+
+
 class KickControlView(discord.ui.View):
     """A view containing buttons and menus for managing channel creators."""
 
@@ -197,14 +244,18 @@ class GiveSelectMenu(discord.ui.Select):
 
             embed = discord.Embed(
                 title="Channel Ownership",
-                description=f"{selected_member.mention}, you now own this channel! Use the above buttons to manage it as you wish.",
+                description=f"You now own this channel! Use the above buttons to manage it as you wish.",
                 color=discord.Color.blue()
             )
             embed.set_footer(text="This message will disappear in 60 seconds.")
-            await self.channel.send(embed=embed, delete_after=60)
+            await self.channel.send(f"{selected_member.mention}", embed=embed, delete_after=60)
+
+            self.database.set_owner_id(self.channel.id, selected_member.id)
 
             if self.view.message:
                 await self.view.message.delete()
+
+            await update_info_embed(self.database, self.channel)
 
 
 class FollowupView(discord.ui.View):
@@ -593,39 +644,7 @@ class CreateControlView(discord.ui.View):
         icons_embed.add_field(name="🙈 Hide", value="", inline=True)
         icons_embed.add_field(name="🔒 Lock", value="", inline=True)
 
-        # Second embed (additional settings or information)
-        info_embed = discord.Embed(
-            title=f"Channel Settings",
-            description="",
-            color=0x90B8FF  # light blue
-        )
-
-        # owner_id = self.database.get_owner_id(self.channel.id)
-        # if owner_id is not None:
-        #     owner = await self.channel.guild.fetch_member(owner_id)
-        #     owner = owner.mention
-        # else:
-        #     owner = "None"
-        # info_embed.add_field(name="Owner", value=f"{owner}", inline=True)
-        #
-        # # limit = self.channel.user_limit
-        # # if limit == 0:
-        # #     limit = "♾️ Unlimited"
-        # # info_embed.add_field(name="Limit", value=f"{limit}", inline=True)
-        # #
-        # # region = self.channel.rtc_region
-        # # if region is None:
-        # #     region = "🌍 Automatic"
-        # # info_embed.add_field(name="Region", value=f"{region}", inline=True)
-        #
-        # channel_state = ChannelState(self.database.get_channel_state_id(self.channel.guild.id, self.channel.id))
-        # if channel_state == ChannelState.PUBLIC:
-        #     channel_state = "🌐 Public"
-        # elif channel_state == ChannelState.LOCKED:
-        #     channel_state = "🔒 Locked"
-        # elif channel_state == ChannelState.HIDDEN:
-        #     channel_state = "🙈 Hidden"
-        # info_embed.add_field(name="Access", value=f"{channel_state}", inline=True)
+        info_embed = await create_info_embed(self.database, self.channel)
 
         # Sending both embeds in a single message
         if interaction:
@@ -758,6 +777,8 @@ class CreateControlView(discord.ui.View):
             embed.set_footer(text="This message will disappear in 20 seconds.")
             await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
 
+            await update_info_embed(self.database, interaction.channel)
+
     async def lock_button_callback(self, interaction: discord.Interaction):
         await self.update_channel(
             interaction,
@@ -812,6 +833,8 @@ class CreateControlView(discord.ui.View):
                 channel=interaction.channel,
             )
         await self.followup_view.send_message(interaction)
+
+        await update_info_embed(self.database, interaction.channel)
 
 
 class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
