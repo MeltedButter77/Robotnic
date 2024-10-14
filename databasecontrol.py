@@ -174,3 +174,10 @@ class Database:
             cursor.execute('SELECT owner_id FROM temp_channels WHERE channel_id = ?', (temp_channel_id,))
             row = cursor.fetchone()
             return row[0] if row else None
+
+    def set_owner_id(self, temp_channel_id: int, owner_id: int) -> int:
+        """Set the owner ID of a temporary channel."""
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('UPDATE temp_channels SET owner_id = ? WHERE channel_id = ?', (owner_id, temp_channel_id,))
+            self.connection.commit()

@@ -344,23 +344,29 @@ class TempChannelsCog(commands.Cog):
         """Listener to handle creation and deletion of temporary channels."""
         try:
             tasks = []
+            left_channel = before.channel
+            joined_channel = after.channel
 
             # Handle channel deletion if user left a channel
-            if before.channel:
-                if self.database.is_temp_channel(before.channel.id) and len(before.channel.members) == 0:
-                    left_channel = self.bot.get_channel(before.channel.id)
-                    if left_channel:
+            if left_channel:
+                # Filter for temporary channels
+                if self.database.is_temp_channel(left_channel.id):
+                    # If the channel is empty, delete the channel
+                    if len(left_channel.members) == 0:
                         tasks.append(self.delete_channel_async(left_channel, member, before.channel))
-                    self.database.delete_temp_channel(before.channel.id)
+                        self.database.delete_temp_channel(before.channel.id)
+                    # If owner leaves the channel, set owner to None
+                    elif self.database.get_owner_id(left_channel.id) == member.id and joined_channel.id != left_channel.id:
+                        self.database.set_owner_id(left_channel.id, None)
 
             # Handle channel creation if user joined a hub channel
-            if after.channel:
-                print(f"Member {member.display_name} ({member.name}) joined {after.channel.name} in {member.guild.name}")
+            if joined_channel:
+                print(f"Member {member.display_name} ({member.name}) joined {joined_channel.name} in {member.guild.name}")
                 channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
-                if after.channel.id in channel_hub_ids:
+                if joined_channel.id in channel_hub_ids:
                     # Prepare data for channel creation
-                    child_name_template = self.database.get_child_name(after.channel.id)
-                    existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, after.channel.id))
+                    child_name_template = self.database.get_child_name(joined_channel.id)
+                    existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
 
                     # Find the next available channel number
                     count = 1
@@ -369,14 +375,14 @@ class TempChannelsCog(commands.Cog):
 
                     # Format the child channel name
                     formatted_child_name = child_name_template.format(count=count, user=member.display_name)
-                    user_limit = self.database.get_user_limit(after.channel.id) or 0
+                    user_limit = self.database.get_user_limit(joined_channel.id) or 0
 
                     try:
                         # Start creating the channel asynchronously
                         create_channel_task = asyncio.create_task(
                             member.guild.create_voice_channel(
                                 name=formatted_child_name,
-                                category=after.channel.category,
+                                category=joined_channel.category,
                                 user_limit=user_limit,
                             )
                         )
@@ -391,7 +397,7 @@ class TempChannelsCog(commands.Cog):
 
                         # Add the new channel to the database
                         self.database.add_temp_channel(
-                            member.guild.id, channel.id, after.channel.id, member.id, count
+                            member.guild.id, channel.id, joined_channel.id, member.id, count
                         )
 
                         # Move the user to the new channel
@@ -401,7 +407,7 @@ class TempChannelsCog(commands.Cog):
                         tasks.append(self.send_control_view_async(channel))
 
                     except discord.Forbidden:
-                        await handle_bot_permission_error("manage_channels", user=member, channel=after.channel)
+                        await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
                         return
                     except Exception as e:
                         await handle_global_error("on_voice_state_update", e)
