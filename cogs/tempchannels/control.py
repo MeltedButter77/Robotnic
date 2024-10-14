@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import discord
 from discord.ext import commands
 import discord.ui
@@ -79,10 +80,10 @@ class KickSelectMenu(discord.ui.Select):
                     label="None",
                     value="None",
                     emoji="🔧",
-                    description="No members to kick"
+                    description="No members to select"
                 )
             ]
-            super().__init__(placeholder="No members to kick", options=options, disabled=True)
+            super().__init__(placeholder="No members to select", options=options, disabled=True)
         else:
             super().__init__(placeholder="Select users to kick", options=options, min_values=1, max_values=len(options))
 
@@ -106,14 +107,111 @@ class KickSelectMenu(discord.ui.Select):
                 description=f"Kicked {len(members)} member(s) from your channel.",
                 color=0x00ff00
             )
+            embed.set_footer(text="This message will disappear in 10 seconds.")
             await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
+            if self.view.message:
+                await self.view.message.delete()
+
+
+class GiveControlView(discord.ui.View):
+    """A view containing a select menu to choose a user currently connected to the temp channel."""
+
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.database = database
+        self.channel = channel
+        self.message = None
+
+        self.add_item(GiveSelectMenu(bot, self.database, self.channel))
+
+    async def send_initial_message(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🎁 Who would you like to give your channel to?",
+            description=f"You have 60 seconds to select one member.",
+            color=0x00ff00
+        )
+        await interaction.response.defer()
+        self.message = await interaction.followup.send(embed=embed, view=self, ephemeral=True, wait=True)  # wait ensures that self.message is set before continuing
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
+
+
+class GiveSelectMenu(discord.ui.Select):
+    """A dropdown menu for selecting users to kick."""
+
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel):
+        self.bot = bot
+        self.database = database
+        self.channel = channel
+
+        owner_id = database.get_owner_id(channel.id)
+
+        options = []
+        for member in channel.members:
+            if member.id == owner_id:
+                continue
+            options.append(
+                discord.SelectOption(
+                    label=f"{member.display_name}",
+                    description=f"",
+                    value=f"{member.id}",
+                    emoji="👥"
+                )
+            )
+
+        if not options:
+            options = [
+                discord.SelectOption(
+                    label="None",
+                    value="None",
+                    emoji="🔧",
+                    description="No members to select"
+                )
+            ]
+            super().__init__(placeholder="No members to select", options=options, disabled=True)
+        else:
+            super().__init__(placeholder="Select user", options=options, min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        owner_perms = {'connect': True, 'view_channel': True}
+        selected_member = interaction.guild.get_member(int(self.values[0]))
+        if selected_member:
+            await self.channel.set_permissions(
+                selected_member,
+                **owner_perms
+            )
+
+            embed = discord.Embed(
+                title="Transferred!",
+                description=f"Ownership of your channel was successfully transferred to {selected_member.mention}.",
+                color=0x00ff00
+            )
+            embed.set_footer(text="This message will disappear in 20 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
+
+            embed = discord.Embed(
+                title="Channel Ownership",
+                description=f"{selected_member.mention}, you now own this channel! Use the above buttons to manage it as you wish.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text="This message will disappear in 60 seconds.")
+            await self.channel.send(embed=embed, delete_after=60)
+
+            if self.view.message:
+                await self.view.message.delete()
 
 
 class FollowupView(discord.ui.View):
     """A view containing buttons and menus for managing channel permissions."""
 
     def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
-        super().__init__(timeout=None)
+        super().__init__(timeout=880)  # 880, 20 seconds before 15 minutes
         self.bot = bot
         self.database = database
         self.channel = channel
@@ -198,8 +296,10 @@ class FollowupView(discord.ui.View):
         return self.message
 
     async def on_timeout(self):
-        # Optionally handle timeout if needed
-        pass
+        new_view = FollowupView(self.bot, self.database, self.channel)
+        if self.message:
+            await self.message.edit(view=new_view)
+            new_view.message = self.message  # Attach the new view to the same message
 
 
 class UpdatePermSelectMenu(discord.ui.MentionableSelect):
@@ -546,14 +646,28 @@ class CreateControlView(discord.ui.View):
         if messages_to_delete:
             await interaction.channel.delete_messages(messages_to_delete)
 
-        await interaction.followup.send(f"Deleted {len(messages_to_delete)} messages.", ephemeral=True, delete_after=10)
+        embed = discord.Embed(
+            title="Messages Deleted",
+            description=f"Deleted {len(messages_to_delete)} messages.",
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="This message will disappear in 10 seconds.")
+        message = await interaction.followup.send(embed=embed, ephemeral=True)
+        await asyncio.sleep(10)
+        await message.delete()
 
     async def delete_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
             return await error_handling.handle_channel_owner_error(interaction)
 
         # Ask for confirmation
-        await interaction.response.send_message("Are you sure you want to delete this channel? Reply with 'yes' within 60 seconds to confirm.", ephemeral=True)
+        embed = discord.Embed(
+            title="Channel Deletion Confirmation",
+            description="Are you sure you want to delete this channel? Reply with 'yes' within 60 seconds to confirm.",
+            color=discord.Color.orange()  # You can adjust the color as needed
+        )
+        embed.set_footer(text="Awaiting your response...")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
         def check(message: discord.Message):
             # Check that the message is from the same user in the same channel and contains 'yes'
@@ -574,7 +688,13 @@ class CreateControlView(discord.ui.View):
         except asyncio.TimeoutError:
             try:
                 # If the user does not respond in time, send a timeout message
-                await interaction.followup.send("Channel deletion timed out. No action was taken.", ephemeral=True, delete_after=10)
+                embed = discord.Embed(
+                    title="Channel Deletion Timed Out",
+                    description="Channel deletion timed out. No action was taken.",
+                    color=discord.Color.red()
+                )
+                embed.set_footer(text="This message will disappear in 10 seconds.")
+                await interaction.followup.send(embed=embed, ephemeral=True, delete_after=10)
             except e:
                 pass
 
@@ -582,18 +702,39 @@ class CreateControlView(discord.ui.View):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
             return await error_handling.handle_channel_owner_error(interaction)
 
-        await interaction.response.send_message(f"Sorry, this button doesnt currently work.", ephemeral=True, delete_after=10)
+        await GiveControlView(self.bot, self.database, interaction.channel).send_initial_message(interaction)
 
     async def claim_button_callback(self, interaction: discord.Interaction):
         owner_id = self.database.get_owner_id(interaction.channel.id)
+
         if owner_id is not None:
             owner = await interaction.guild.fetch_member(owner_id)
-            await interaction.response.send_message(f"This channel is already owned by {owner.mention}", ephemeral=True, delete_after=10)
+            embed = discord.Embed(
+                title="Ownership Notice",
+                description=f"This channel is already owned by {owner.mention}.",
+                color=discord.Color.orange()  # You can change the color to your preference
+            )
+            embed.set_footer(text="This message will disappear in 10 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
+
         elif interaction.user not in interaction.channel.members:
-            await interaction.response.send_message("You must be connected to this channel to claim it", ephemeral=True, delete_after=10)
+            embed = discord.Embed(
+                title="Action Required",
+                description="You must be connected to this channel to claim it.",
+                color=discord.Color.yellow()
+            )
+            embed.set_footer(text="This message will disappear in 10 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
+
         elif owner_id is None and interaction.user in interaction.channel.members:
             self.database.set_owner_id(interaction.channel.id, interaction.user.id)
-            await interaction.response.send_message("You are now the owner of this channel", ephemeral=True, delete_after=10)
+            embed = discord.Embed(
+                title="Channel Claimed!",
+                description="You have successfully claimed this channel!",
+                color=discord.Color.green()
+            )
+            embed.set_footer(text="This message will disappear in 20 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
         await self.update_channel(
@@ -681,11 +822,23 @@ class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
         user_limit = self.user_limit.value or str(self.channel.user_limit)
 
         if not user_limit.isnumeric():
-            await interaction.response.send_message("User limit must be a number", ephemeral=True, delete_after=10)
+            embed = discord.Embed(
+                title="Invalid Input",
+                description="User limit must be a number.",
+                color=discord.Color.red()
+            )
+            embed.set_footer(text="This message will disappear in 20 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
             return
 
         await self.channel.edit(name=channel_name, user_limit=int(user_limit))
-        await interaction.response.send_message("Your channel has been updated", ephemeral=True, delete_after=10)
+        embed = discord.Embed(
+            title="Channel Updated",
+            description="Your channel has been updated.",
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text="This message will disappear in 10 seconds.")
+        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
 
 
 class ControlTempChannelsCog(commands.Cog):
