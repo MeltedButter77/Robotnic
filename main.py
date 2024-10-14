@@ -34,6 +34,59 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
         await self.setup_cogs()
         await self.send_notification()
 
+    async def on_guild_join(self, guild):
+        # This event is triggered when the bot joins a new guild
+        for channel in guild.text_channels:
+            if channel.permissions_for(guild.me).send_messages:
+                embed = discord.Embed(
+                    title=f"Hello {guild.name}! 🎉",
+                    description="Thank you for inviting me to your server! 😊\nHere are some commands to get started.",
+                    color=discord.Color.blue()
+                )
+                embed.add_field(
+                    name="/setup_creators",
+                    value="Allows an admin to setup a channel creator (or channel hub) which dynamically creates voice channels when users join them.",
+                    inline=False
+                )
+                embed.set_footer(text="Need more help? Reach out to support below!")
+                view = discord.ui.View()
+                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label="Contact Support", url=f"{config['support_server']}"))
+                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label="Visit Website", url=f"{config['website']}"))
+                await channel.send(embed=embed, view=view)
+                break
+
+        if self.user.id == 853490879753617458:
+            notification_channel = self.get_channel(int(config["sync_channel_id"]))
+        else:
+            notification_channel = self.get_channel(int(config["testing_sync_channel_id"]))
+        if notification_channel is not None:
+            # Get the guild information
+            guild_name = guild.name
+            guild_id = guild.id
+            guild_owner = guild.owner
+            guild_owner_id = guild.owner_id
+            guild_member_count = guild.member_count
+            guild_creation_date = guild.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            guild_region = str(guild.preferred_locale)  # If you want locale info
+
+            # Create the embed with the server information
+            embed = discord.Embed(
+                title="Joined a New Server!",
+                description=f"",
+                color=discord.Color.green()
+            )
+
+            embed.add_field(name="Server Name", value=guild_name, inline=True)
+            embed.add_field(name="Server ID", value=guild_id, inline=True)
+            embed.add_field(name="Owner", value=f"{guild_owner} (ID: {guild_owner_id})", inline=True)
+            embed.add_field(name="Member Count", value=guild_member_count, inline=True)
+            embed.add_field(name="Creation Date", value=guild_creation_date, inline=True)
+            embed.add_field(name="Region/Locale", value=guild_region, inline=True)
+
+            # Send the information to the notification channel
+            await notification_channel.send(embed=embed)
+
+
     async def load_extension_with_args(self, cog_name, *args):
         cog = __import__(cog_name, fromlist=['setup'])
         await cog.setup(self, *args)
