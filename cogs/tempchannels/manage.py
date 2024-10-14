@@ -356,7 +356,7 @@ class TempChannelsCog(commands.Cog):
                         tasks.append(self.delete_channel_async(left_channel, member, before.channel))
                         self.database.delete_temp_channel(before.channel.id)
                     # If owner leaves the channel, set owner to None
-                    elif self.database.get_owner_id(left_channel.id) == member.id and joined_channel.id != left_channel.id:
+                    elif self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
                         self.database.set_owner_id(left_channel.id, None)
 
             # Handle channel creation if user joined a hub channel
