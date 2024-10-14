@@ -469,47 +469,46 @@ class CreateControlView(discord.ui.View):
     def setup_items(self):
         channel_state = self.database.get_channel_state_id(self.channel.guild.id, self.channel.id)
 
+        state_row = 3
+
         # Define buttons and their callbacks
         lock_button = discord.ui.Button(
             label="",
             emoji="🔒",
-            style=discord.ButtonStyle.primary,
-            row=1,
-            disabled=(channel_state == ChannelState.LOCKED.value)
+            style=discord.ButtonStyle.success if channel_state == ChannelState.LOCKED.value else discord.ButtonStyle.primary,
+            row=state_row,
+            # disabled=(channel_state == ChannelState.LOCKED.value)
         )
-        lock_button.callback = self.lock_button_callback
 
         hide_button = discord.ui.Button(
             label="",
             emoji="🙈",
-            style=discord.ButtonStyle.primary,
-            row=1,
-            disabled=(channel_state == ChannelState.HIDDEN.value)
+            style=discord.ButtonStyle.success if channel_state == ChannelState.HIDDEN.value else discord.ButtonStyle.primary,
+            row=state_row,
+            # disabled=(channel_state == ChannelState.HIDDEN.value)
         )
-        hide_button.callback = self.hide_button_callback
 
         public_button = discord.ui.Button(
             label="",
             emoji="🌐",
-            style=discord.ButtonStyle.primary,
-            row=1,
-            disabled=(channel_state == ChannelState.PUBLIC.value)
+            style=discord.ButtonStyle.success if channel_state == ChannelState.PUBLIC.value else discord.ButtonStyle.primary,
+            row=state_row,
+            # disabled=(channel_state == ChannelState.PUBLIC.value)
         )
-        public_button.callback = self.public_button_callback
 
         modify_button = discord.ui.Button(
             label="",
             emoji="🔧",
-            style=discord.ButtonStyle.secondary
+            style=discord.ButtonStyle.secondary,
+            row=0
         )
-        modify_button.callback = self.modify_button_callback
 
         kick_button = discord.ui.Button(
             label="",
             emoji="👢",
-            style=discord.ButtonStyle.secondary
+            style=discord.ButtonStyle.secondary,
+            row=1
         )
-        kick_button.callback = self.kick_button_callback
 
         clear_button = discord.ui.Button(
             label="",
@@ -517,40 +516,62 @@ class CreateControlView(discord.ui.View):
             style=discord.ButtonStyle.danger,
             row=0
         )
-        clear_button.callback = self.clear_button_callback
-
-        give_button = discord.ui.Button(
-            label="",
-            emoji="🎁",
-            style=discord.ButtonStyle.success,
-            row=2
-        )
-        give_button.callback = self.give_button_callback
-
-        claim_button = discord.ui.Button(
-            label="",
-            emoji="👑",
-            style=discord.ButtonStyle.success,
-            row=2
-        )
-        claim_button.callback = self.claim_button_callback
 
         delete_button = discord.ui.Button(
             label="",
             emoji="🗑️",
             style=discord.ButtonStyle.danger,
-            row=2
+            row=1
         )
-        delete_button.callback = self.delete_button_callback
 
-        # Add buttons to the view
-        self.add_item(modify_button)
-        self.add_item(kick_button)
-        self.add_item(clear_button)
+        give_button = discord.ui.Button(
+            label="",
+            emoji="🎁",
+            style=discord.ButtonStyle.success,
+            row=0
+        )
+
+        claim_button = discord.ui.Button(
+            label="",
+            emoji="👑",
+            style=discord.ButtonStyle.success,
+            row=1
+        )
+
+        banner_button = discord.ui.Button(
+            label="- - - - - - - - - - - - - - - - - - - -",
+            #emoji="",
+            style=discord.ButtonStyle.secondary,
+            row=2,
+            disabled=True
+        )
+
+        lock_button.callback = self.lock_button_callback
+        hide_button.callback = self.hide_button_callback
+        public_button.callback = self.public_button_callback
+        modify_button.callback = self.modify_button_callback
+        kick_button.callback = self.kick_button_callback
+        clear_button.callback = self.clear_button_callback
+        delete_button.callback = self.delete_button_callback
+        give_button.callback = self.give_button_callback
+        claim_button.callback = self.claim_button_callback
+        public_button.callback = self.public_button_callback
+
+        # row 0
         self.add_item(public_button)
         self.add_item(hide_button)
         self.add_item(lock_button)
+
+        # row 1
+        self.add_item(banner_button)
+
+        # row 2
+        self.add_item(modify_button)
         self.add_item(give_button)
+        self.add_item(clear_button)
+
+        # row 3
+        self.add_item(kick_button)
         self.add_item(claim_button)
         self.add_item(delete_button)
 
@@ -561,15 +582,16 @@ class CreateControlView(discord.ui.View):
             description="",
             color=0x00ff00
         )
+
         icons_embed.add_field(name="🔧 Modify", value="", inline=True)
-        icons_embed.add_field(name="👢 Kick", value="", inline=True)
+        icons_embed.add_field(name="🎁 Give", value="", inline=True)
         icons_embed.add_field(name="🧽 Clear", value="", inline=True)
+        icons_embed.add_field(name="👢 Kick", value="", inline=True)
+        icons_embed.add_field(name="👑 Claim", value="", inline=True)
+        icons_embed.add_field(name="🗑️ Delete", value="", inline=True)
         icons_embed.add_field(name="🌐 Public", value="", inline=True)
         icons_embed.add_field(name="🙈 Hide", value="", inline=True)
         icons_embed.add_field(name="🔒 Lock", value="", inline=True)
-        icons_embed.add_field(name="🎁 Give", value="", inline=True)
-        icons_embed.add_field(name="👑 Claim", value="", inline=True)
-        icons_embed.add_field(name="🗑️ Delete", value="", inline=True)
 
         # Second embed (additional settings or information)
         info_embed = discord.Embed(
@@ -584,18 +606,18 @@ class CreateControlView(discord.ui.View):
         #     owner = owner.mention
         # else:
         #     owner = "None"
-        # info_embed.add_field(name="Channel Owner", value=f"{owner}", inline=False)
+        # info_embed.add_field(name="Owner", value=f"{owner}", inline=True)
         #
-        # limit = self.channel.user_limit
-        # if limit == 0:
-        #     limit = "♾️ Unlimited"
-        # info_embed.add_field(name="Limit", value=f"{limit}", inline=True)
+        # # limit = self.channel.user_limit
+        # # if limit == 0:
+        # #     limit = "♾️ Unlimited"
+        # # info_embed.add_field(name="Limit", value=f"{limit}", inline=True)
+        # #
+        # # region = self.channel.rtc_region
+        # # if region is None:
+        # #     region = "🌍 Automatic"
+        # # info_embed.add_field(name="Region", value=f"{region}", inline=True)
         #
-        # region = self.channel.rtc_region
-        # if region is None:
-        #     region = "🌍 Automatic"
-        # info_embed.add_field(name="Region", value=f"{region}", inline=True)
-
         # channel_state = ChannelState(self.database.get_channel_state_id(self.channel.guild.id, self.channel.id))
         # if channel_state == ChannelState.PUBLIC:
         #     channel_state = "🌐 Public"
@@ -603,7 +625,7 @@ class CreateControlView(discord.ui.View):
         #     channel_state = "🔒 Locked"
         # elif channel_state == ChannelState.HIDDEN:
         #     channel_state = "🙈 Hidden"
-        # info_embed.add_field(name="State", value=f"{channel_state}", inline=True)
+        # info_embed.add_field(name="Access", value=f"{channel_state}", inline=True)
 
         # Sending both embeds in a single message
         if interaction:
