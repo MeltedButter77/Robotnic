@@ -72,14 +72,14 @@ async def update_info_embed(database: databasecontrol.Database, channel):
 class KickControlView(discord.ui.View):
     """A view containing buttons and menus for managing channel creators."""
 
-    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel):
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel, is_ban: bool = False):
         super().__init__(timeout=60)
         self.bot = bot
         self.database = database
         self.channel = channel
         self.message = None
 
-        self.add_item(KickSelectMenu(bot, self.database, self.channel))
+        self.add_item(KickSelectMenu(bot, self.database, self.channel, is_ban))
 
     async def send_initial_message(self, interaction: discord.Interaction):
         embed = discord.Embed(
@@ -101,10 +101,11 @@ class KickControlView(discord.ui.View):
 class KickSelectMenu(discord.ui.Select):
     """A dropdown menu for selecting users to kick."""
 
-    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel):
+    def __init__(self, bot: commands.Bot, database: databasecontrol.Database, channel: discord.abc.GuildChannel, is_ban: bool = False):
         self.bot = bot
         self.database = database
         self.channel = channel
+        self.is_ban = is_ban
 
         owner_id = database.get_owner_id(channel.id)
 
@@ -143,15 +144,19 @@ class KickSelectMenu(discord.ui.Select):
             if member:
                 members.append(member)
                 await member.move_to(None)
-                await self.channel.set_permissions(
-                    member,
-                    **kick_perms
-                )
+                if self.is_ban:
+                    await self.channel.set_permissions(
+                        member,
+                        **kick_perms
+                    )
 
         if len(members) > 0:
+            action = "Kicked"
+            if self.is_ban:
+                action = "Banned"
             embed = discord.Embed(
-                title="Kicked!",
-                description=f"Kicked {len(members)} member(s) from your channel.",
+                title=f"{action}!",
+                description=f"{action} {len(members)} member(s) from your channel.",
                 color=0x00ff00
             )
             embed.set_footer(text="This message will disappear in 10 seconds.")
@@ -558,14 +563,14 @@ class CreateControlView(discord.ui.View):
             label="",
             emoji="👢",
             style=discord.ButtonStyle.secondary,
-            row=1
+            row=0
         )
 
         clear_button = discord.ui.Button(
             label="",
             emoji="🧽",
             style=discord.ButtonStyle.danger,
-            row=0
+            row=1
         )
 
         delete_button = discord.ui.Button(
@@ -582,10 +587,10 @@ class CreateControlView(discord.ui.View):
             row=0
         )
 
-        claim_button = discord.ui.Button(
+        ban_button = discord.ui.Button(
             label="",
-            emoji="👑",
-            style=discord.ButtonStyle.success,
+            emoji="🔨",
+            style=discord.ButtonStyle.danger,
             row=1
         )
 
@@ -605,25 +610,21 @@ class CreateControlView(discord.ui.View):
         clear_button.callback = self.clear_button_callback
         delete_button.callback = self.delete_button_callback
         give_button.callback = self.give_button_callback
-        claim_button.callback = self.claim_button_callback
+        ban_button.callback = self.ban_button_callback
         public_button.callback = self.public_button_callback
 
-        # row 0
         self.add_item(public_button)
         self.add_item(hide_button)
         self.add_item(lock_button)
 
-        # row 1
         self.add_item(banner_button)
 
-        # row 2
         self.add_item(modify_button)
-        self.add_item(give_button)
-        self.add_item(clear_button)
-
-        # row 3
         self.add_item(kick_button)
-        self.add_item(claim_button)
+        self.add_item(give_button)
+
+        self.add_item(clear_button)
+        self.add_item(ban_button)
         self.add_item(delete_button)
 
     async def send_initial_message(self, interaction: discord.Interaction=None):
@@ -635,10 +636,10 @@ class CreateControlView(discord.ui.View):
         )
 
         icons_embed.add_field(name="🔧 Modify", value="", inline=True)
-        icons_embed.add_field(name="🎁 Give", value="", inline=True)
-        icons_embed.add_field(name="🧽 Clear", value="", inline=True)
         icons_embed.add_field(name="👢 Kick", value="", inline=True)
-        icons_embed.add_field(name="👑 Claim", value="", inline=True)
+        icons_embed.add_field(name="🎁 Give/Claim", value="", inline=True)
+        icons_embed.add_field(name="🧽 Clear", value="", inline=True)
+        icons_embed.add_field(name="🔨 Ban", value="", inline=True)
         icons_embed.add_field(name="🗑️ Delete", value="", inline=True)
         icons_embed.add_field(name="🌐 Public", value="", inline=True)
         icons_embed.add_field(name="🙈 Hide", value="", inline=True)
@@ -664,7 +665,7 @@ class CreateControlView(discord.ui.View):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
             return await error_handling.handle_channel_owner_error(interaction)
 
-        await KickControlView(self.bot, self.database, interaction.channel).send_initial_message(interaction)
+        await KickControlView(self.bot, self.database, interaction.channel, is_ban=False).send_initial_message(interaction)
 
     async def clear_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
@@ -740,15 +741,9 @@ class CreateControlView(discord.ui.View):
                 pass
 
     async def give_button_callback(self, interaction: discord.Interaction):
-        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
-            return await error_handling.handle_channel_owner_error(interaction)
-
-        await GiveControlView(self.bot, self.database, interaction.channel).send_initial_message(interaction)
-
-    async def claim_button_callback(self, interaction: discord.Interaction):
         owner_id = self.database.get_owner_id(interaction.channel.id)
 
-        if owner_id is not None:
+        if owner_id is not None and owner_id != interaction.user.id:
             owner = await interaction.guild.fetch_member(owner_id)
             embed = discord.Embed(
                 title="Ownership Notice",
@@ -778,6 +773,15 @@ class CreateControlView(discord.ui.View):
             await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
 
             await update_info_embed(self.database, interaction.channel)
+
+        elif owner_id:
+            await GiveControlView(self.bot, self.database, interaction.channel).send_initial_message(interaction)
+
+    async def ban_button_callback(self, interaction: discord.Interaction):
+        if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
+            return await error_handling.handle_channel_owner_error(interaction)
+
+        await KickControlView(self.bot, self.database, interaction.channel, is_ban=True).send_initial_message(interaction)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
         await self.update_channel(
