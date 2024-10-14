@@ -50,8 +50,12 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
                 )
                 embed.set_footer(text="Need more help? Reach out to support below!")
                 view = discord.ui.View()
-                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label="Contact Support", url=f"{config['support_server']}"))
-                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label="Visit Website", url=f"{config['website']}"))
+                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url,
+                                                label="Contact Support",
+                                                url=f"{config['support_server']}"))
+                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url,
+                                                label="Visit Website",
+                                                url=f"{config['website']}"))
                 await channel.send(embed=embed, view=view)
                 break
 
@@ -86,7 +90,6 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
             # Send the information to the notification channel
             await notification_channel.send(embed=embed)
 
-
     async def load_extension_with_args(self, cog_name, *args):
         cog = __import__(cog_name, fromlist=['setup'])
         await cog.setup(self, *args)
@@ -113,6 +116,7 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
             synced_commands = await self.tree.sync()
             await notification_channel.send(f'Synced {len(synced_commands)} commands!')
         print("Synced the commands")
+
 
 # Create the bot instance
 bot = Bot()
