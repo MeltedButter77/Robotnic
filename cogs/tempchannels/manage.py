@@ -1,5 +1,4 @@
 import asyncio
-
 from discord import app_commands
 import databasecontrol
 from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
