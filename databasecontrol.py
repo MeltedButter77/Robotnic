@@ -153,6 +153,7 @@ class Database:
                 'INSERT INTO temp_channels (guild_id, channel_id, creator_id, owner_id, channel_state, number) VALUES (?, ?, ?, ?, ?, ?)',
                 (guild_id, channel_id, creator_channel_id, owner_id, 0, number)
             )
+            print(f"Created Temp Channel Entry. channel_id: {channel_id}, guild_id: {guild_id}, number: {number}")
 
     def delete_temp_channel(self, channel_id: int):
         """Delete a temporary channel from the database."""

@@ -199,6 +199,26 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
         # Create an embed with channel information
         await EditCreatorView(self.bot, self.database, channel).send_message(interaction)
 
+        # Send notification to support server
+        if self.bot.user.id == 853490879753617458:
+            notification_channel = self.bot.get_channel(int(config["sync_channel_id"]))
+        else:
+            notification_channel = self.bot.get_channel(int(config["testing_sync_channel_id"]))
+        if notification_channel is not None:
+            embed = discord.Embed(
+                title=f"New Channel Creator!",
+                description=f"",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="Children Names", value=f"{temp_child_name}", inline=True)
+            embed.add_field(name="Children User Limit", value=f"{user_limit}", inline=True)
+            embed.add_field(name="Creator ID", value=f"{channel.id}", inline=True)
+            embed.add_field(name="User Actioned", value=f"{interaction.user.name} ({interaction.user.id})", inline=True)
+            is_owner = interaction.channel.guild.owner_id == interaction.user.id
+            embed.add_field(name="Is User Server Owner", value=is_owner, inline=True)
+
+            await notification_channel.send(embed=embed)
+
 
 class EditCreatorView(View):
     """A view containing buttons and menus for managing channel creators."""
@@ -362,7 +382,7 @@ class TempChannelsCog(commands.Cog):
 
             # Handle channel creation if user joined a hub channel
             if joined_channel:
-                print(f"Member {member.display_name} ({member.name}) joined {joined_channel.name} in {member.guild.name}")
+                print(f"'{member.name}' updated '{joined_channel.name}' in '{member.guild.name}'")
                 channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
                 if joined_channel.id in channel_hub_ids:
                     # Prepare data for channel creation
