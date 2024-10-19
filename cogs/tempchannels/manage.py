@@ -1,5 +1,4 @@
 import asyncio
-
 from discord import app_commands
 import databasecontrol
 from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
@@ -382,7 +381,7 @@ class TempChannelsCog(commands.Cog):
 
             # Handle channel creation if user joined a hub channel
             if joined_channel:
-                print(f"'{member.name}' updated '{joined_channel.name}' in '{member.guild.name}'")
+                print(f"After voice update for '{member.name}' in '{joined_channel.name}' in '{member.guild.name}'")
                 channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
                 if joined_channel.id in channel_hub_ids:
                     # Prepare data for channel creation
