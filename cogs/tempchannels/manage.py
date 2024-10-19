@@ -212,7 +212,8 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
             embed.add_field(name="Children Names", value=f"{temp_child_name}", inline=True)
             embed.add_field(name="Children User Limit", value=f"{user_limit}", inline=True)
             embed.add_field(name="Creator ID", value=f"{channel.id}", inline=True)
-            embed.add_field(name="User Actioned", value=f"{interaction.user.name} ({interaction.user.id})", inline=True)
+            embed.add_field(name="User", value=f"{interaction.user.name} ({interaction.user.id})", inline=True)
+            embed.add_field(name="Guild", value=f"{interaction.guild.name} ({interaction.guild.id})", inline=True)
             is_owner = interaction.channel.guild.owner_id == interaction.user.id
             embed.add_field(name="Is User Server Owner", value=is_owner, inline=True)
 
