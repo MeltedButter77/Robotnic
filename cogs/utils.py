@@ -15,27 +15,43 @@ class UtilCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command()
-    async def ping(self, ctx: commands.Context):
-        """Responds with 'pong' to check bot responsiveness."""
-        await ctx.send('pong')
-
     @discord.app_commands.command(
-        name="support",
-        description="Get a link to the support server",
+        name="help",
+        description="Find out more information about the bot",
     )
-    async def support(self, interaction: discord.Interaction):
+    async def help(self, interaction: discord.Interaction):
         """Command to supply the support server link"""
         embed = discord.Embed(
-            title="Thanks for reaching out!",
+            title="🔧 Help Menu",  # Added emoji to the title
+            description="Thanks for using Dr Robotnic! Here is a list of his commands. More are to be added very soon, so keep a look out! 👀",
+            color=0x00ff00  # Green color
         )
+
+        embed.set_footer(text="💡 Need more help? Reach out to support below!")
+
+        # Add command fields with emojis
+        embed.add_field(
+            name="⚙️ /setup_creators",
+            value="Allows an admin to setup a channel creator (or channel hub) which dynamically creates voice channels when users join them.",
+            inline=False
+        )
+
+        # Create a view with a support button
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
-                label="Support Server",
+                label="🛠️ Support Server",  # Added emoji to the button label
                 url=f"{config['support_server']}",
             )
         )
+        view.add_item(
+            discord.ui.Button(
+                label="🌐 Website",  # Added emoji to the button label
+                url=f"{config['website']}",
+            )
+        )
+
+        # Send the embed and view
         await interaction.response.send_message(embed=embed, view=view)
 
 
