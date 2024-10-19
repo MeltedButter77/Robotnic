@@ -857,6 +857,7 @@ class CreateControlView(discord.ui.View):
             for user in connected_users
         ]
         await asyncio.gather(*tasks)
+        await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
         self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
 
         # Update the control menu
