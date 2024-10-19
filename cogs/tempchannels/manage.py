@@ -400,11 +400,15 @@ class TempChannelsCog(commands.Cog):
 
                     try:
                         # Start creating the channel asynchronously
+                        overwrites = {
+                            member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
+                        }
                         create_channel_task = asyncio.create_task(
                             member.guild.create_voice_channel(
                                 name=formatted_child_name,
                                 category=joined_channel.category,
                                 user_limit=user_limit,
+                                overwrites=overwrites,
                             )
                         )
 
@@ -425,9 +429,10 @@ class TempChannelsCog(commands.Cog):
                         await member.move_to(channel)
 
                         # Schedule sending the control view message concurrently
-                        tasks.append(self.send_control_view_async(channel))
+                        await self.send_control_view_async(channel)
 
                     except discord.Forbidden:
+                        # How do i know what permission was forbidden?
                         await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
                         return
                     except Exception as e:
