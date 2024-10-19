@@ -204,6 +204,14 @@ class GiveSelectMenu(discord.ui.Select):
         owner_id = database.get_owner_id(channel.id)
 
         options = []
+        options.append(
+            discord.SelectOption(
+                label=f"Noone (allows anyone to claim)",
+                description=f"",
+                value=f"None",
+                emoji="❌"
+            )
+        )
         for member in channel.members:
             if member.id == owner_id:
                 continue
@@ -231,7 +239,26 @@ class GiveSelectMenu(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         owner_perms = {'connect': True, 'view_channel': True}
-        selected_member = interaction.guild.get_member(int(self.values[0]))
+        if self.values[0] == "None":
+            selected_member = None
+
+            embed = discord.Embed(
+                title="Channel available to Claim!",
+                description=f"Ownership of your channel has been removed.",
+                color=0x00ff00
+            )
+            embed.set_footer(text="This message will disappear in 20 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
+
+            self.database.set_owner_id(self.channel.id, None)
+
+            if self.view.message:
+                await self.view.message.delete()
+            await update_info_embed(self.database, self.channel)
+
+        else:
+            selected_member = interaction.guild.get_member(int(self.values[0]))
+
         if selected_member:
             await self.channel.set_permissions(
                 selected_member,
@@ -258,7 +285,6 @@ class GiveSelectMenu(discord.ui.Select):
 
             if self.view.message:
                 await self.view.message.delete()
-
             await update_info_embed(self.database, self.channel)
 
 
@@ -437,7 +463,7 @@ class RemoveOverwritesSelectMenu(discord.ui.Select):
         for target, overwrite in overwrites.items():
 
             # Exclude the everyone role since it's managed by the main buttons
-            if target.id == channel.guild.default_role.id or target.id == channel_owner_id:
+            if target.id == channel.guild.default_role.id or target.id == channel_owner_id or target.id == channel.guild.me.id:
                 continue
 
             exclude_target = True
@@ -826,9 +852,11 @@ class CreateControlView(discord.ui.View):
 
         # Set permissions and channel_state in database
         connected_users = [member for member in interaction.channel.members if not member.bot]
-        for user in connected_users:
-            await interaction.channel.set_permissions(user, connect=True, view_channel=True)
-        await interaction.channel.set_permissions(interaction.guild.default_role, **permissions)
+        tasks = [
+            interaction.channel.set_permissions(user, connect=True, view_channel=True)
+            for user in connected_users
+        ]
+        await asyncio.gather(*tasks)
         self.database.update_channel_state(interaction.channel.guild.id, interaction.channel.id, new_state.value)
 
         # Update the control menu
