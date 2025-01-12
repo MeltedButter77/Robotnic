@@ -163,7 +163,7 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
 
     # Define the text inputs
     child_name = discord.ui.TextInput(
-        label="Channel Names (Variables: {user}, {count})",
+        label="Channel Names (Variables: {user}, {count}, {activity})",
         placeholder="Default: {user}'s Channel",
         required=False,
         max_length=25
@@ -313,7 +313,7 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
 
     # Define the text inputs
     child_name = discord.ui.TextInput(
-        label="Channel Names (Variables: {user}, {count})",
+        label="Channel Names (Variables: {user}, {count}, {activity})",
         placeholder="Default: {user}'s Channel",
         required=False,
         max_length=25
@@ -394,8 +394,11 @@ class TempChannelsCog(commands.Cog):
                     while count in existing_numbers:
                         count += 1
 
+                    # Get proper activity name incase there is no activity
+                    activity_name = member.activities[0].name if member.activities else "General"
+
                     # Format the child channel name
-                    formatted_child_name = child_name_template.format(count=count, user=member.display_name)
+                    formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
                     user_limit = self.database.get_user_limit(joined_channel.id) or 0
 
                     try:
@@ -442,6 +445,34 @@ class TempChannelsCog(commands.Cog):
             # Run any remaining tasks concurrently
             if tasks:
                 await asyncio.gather(*tasks)
+
+            # TODO: This overwrites user custom names. Need to add way to track whether names are manually changed
+            if joined_channel:
+                if self.database.is_temp_channel(joined_channel.id):
+                    hub_id = self.database.get_temp_channel_creator_id(joined_channel.id)
+
+                    child_name_template = self.database.get_child_name(hub_id)
+                    existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
+
+                    # Find the next available channel number
+                    count = self.database.get_temp_channel_number(joined_channel.id)
+
+                    activity_name = member.activities[0].name if member.activities else "General"
+
+                    # Format the child channel name
+                    formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
+
+                    if formatted_child_name != joined_channel.name:
+                        # rename channel
+                        try:
+                            print(str(formatted_child_name))
+                            await joined_channel.edit(name=str(formatted_child_name))
+                        except discord.Forbidden:
+                            await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                        except Exception as e:
+                            await handle_global_error("on_voice_state_update", e)
+                    else:
+                        print(f"Channel name is already correct for '{member.name}' in '{joined_channel.name}' in '{member.guild.name}'")
 
         except Exception as error:
             print(f"Error in on_voice_state_update: {error}")

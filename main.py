@@ -18,6 +18,7 @@ with open(config_path) as config_file:
 # Define the intents
 intents = discord.Intents.default()
 intents.message_content = True
+intents.presences = True
 intents.members = True
 
 
