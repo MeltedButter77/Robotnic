@@ -363,120 +363,131 @@ class TempChannelsCog(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         """Listener to handle creation and deletion of temporary channels."""
         try:
-            joined_channel = after.channel
+            ### Order of operations here is important as we want creation to be the fastest, then deletion, then updating
 
             # Handle channel creation if user joined a hub channel
-            if joined_channel:
-                channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
-                if joined_channel.id in channel_hub_ids:
-                    try:
-                        # Create the channel with an initial name (hourglass emoji)
-                        overwrites = {
-                            member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
-                        }
-                        channel = await member.guild.create_voice_channel(
-                            name="⏳",
-                            category=joined_channel.category,
-                            user_limit=self.database.get_user_limit(joined_channel.id) or 0,
-                            position=joined_channel.position,
-                            overwrites=overwrites,
-                        )
-
-                        # Move the user to the new channel as quickly as possible
-                        await member.move_to(channel)
-
-                        # Add the new channel to the database immediately
-                        count = 1
-                        existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
-                        while count in existing_numbers:
-                            count += 1
-
-                        self.database.add_temp_channel(
-                            member.guild.id, channel.id, joined_channel.id, member.id, count
-                        )
-
-                        # Prepare the proper activity name and formatted name for the channel
-                        activity_name = "General"
-                        for activity in member.activities:
-                            if activity.type == discord.ActivityType.playing:
-                                activity_name = activity.name
-                        child_name_template = self.database.get_child_name(joined_channel.id)
-                        formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
-                        if len(formatted_child_name) > 100:
-                            formatted_child_name = formatted_child_name[:97] + "..."
-
-                        # Update the channel name after user is in
-                        await channel.edit(name=formatted_child_name)
-
-                        # Schedule sending the control view message concurrently
-                        await self.send_control_view_async(channel)
-                        await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
-
-                    except discord.Forbidden:
-                        await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
-                        return
-                    except Exception as e:
-                        await handle_global_error("on_voice_state_update", e)
-                        return
-
-            left_channel = before.channel
+            if after.channel:
+                await self.create_channel_async(after.channel, member)
 
             # Handle channel deletion if user left a channel
-            if left_channel:
-                # Filter for temporary channels
-                if self.database.is_temp_channel(left_channel.id):
-                    # If the channel is empty, delete the channel
-                    if len(left_channel.members) == 0:
-                        await self.delete_channel_async(left_channel, member, before.channel)
-                        self.database.delete_temp_channel(before.channel.id)
-                    # If owner leaves the channel, set owner to None
-                    elif self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
-                        self.database.set_owner_id(left_channel.id, None)
-                        await cogs.tempchannels.control.update_info_embed(self.database, left_channel)
+            if before.channel:
+                await self.delete_channel_async(before.channel, after.channel, member)
 
-            # Update activity channel names
-            if joined_channel:
-                if self.database.is_temp_channel(joined_channel.id) and not self.database.get_temp_channel_is_renamed(joined_channel.id):
-                    hub_id = self.database.get_temp_channel_creator_id(joined_channel.id)
-
-                    child_name_template = self.database.get_child_name(hub_id)
-                    # Filter for activity
-                    if "activity" not in child_name_template:
-                        return
-
-                    count = self.database.get_temp_channel_number(joined_channel.id)
-
-                    activity_name = "General"
-                    for activity in member.activities:
-                        if activity.type == discord.ActivityType.playing:
-                            activity_name = activity.name
-
-                    # Format the child channel name
-                    formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
-                    if len(formatted_child_name) > 100:
-                        formatted_child_name = formatted_child_name[:97] + "..."
-
-                    if formatted_child_name != joined_channel.name:
-                        # rename channel
-                        try:
-                            await joined_channel.edit(name=str(formatted_child_name))
-                            await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
-                        except discord.Forbidden:
-                            await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
-                        except Exception as e:
-                            await handle_global_error("on_voice_state_update", e)
+            # Update activity channel name
+            if after.channel:
+                await self.update_channel_activity(after.channel, member)
 
         except Exception as error:
             print(f"Error in on_voice_state_update: {error}")
             await handle_global_error("on_voice_state_update", error)
 
-    async def delete_channel_async(self, channel, member, before_channel):
-        try:
-            await channel.delete()
-        except discord.Forbidden:
-            await handle_bot_permission_error("manage_channels", user=member, channel=before_channel)
-        except Exception as e:
-            await handle_global_error("delete_channel_async", e)
+    async def create_channel_async(self, joined_channel, member):
+        channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
+        if joined_channel.id in channel_hub_ids:
+            try:
+                # Create the channel with an initial name (hourglass emoji)
+                overwrites = {
+                    member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
+                }
+                channel = await member.guild.create_voice_channel(
+                    name="⏳",
+                    category=joined_channel.category,
+                    user_limit=self.database.get_user_limit(joined_channel.id) or 0,
+                    position=joined_channel.position,
+                    overwrites=overwrites,
+                )
+
+                # Move the user to the new channel as quickly as possible
+                try:
+                    await member.move_to(channel)
+                except discord.Forbidden:
+                    await handle_bot_permission_error("move_to", member)
+                    await channel.delete()
+                except Exception as e:
+                    await channel.delete()
+                    return
+
+                # Add the new channel to the database immediately
+                count = 1
+                existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
+                while count in existing_numbers:
+                    count += 1
+
+                self.database.add_temp_channel(
+                    member.guild.id, channel.id, joined_channel.id, member.id, count
+                )
+
+                # Prepare the proper activity name and formatted name for the channel
+                activity_name = "General"
+                for activity in member.activities:
+                    if activity.type == discord.ActivityType.playing:
+                        activity_name = activity.name
+                child_name_template = self.database.get_child_name(joined_channel.id)
+                formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
+                if len(formatted_child_name) > 100:
+                    formatted_child_name = formatted_child_name[:97] + "..."
+
+                # Update the channel name after user is in
+                await channel.edit(name=formatted_child_name)
+
+                # Schedule sending the control view message concurrently
+                await self.send_control_view_async(channel)
+                await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
+
+            except discord.Forbidden:
+                await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                return
+            except Exception as e:
+                await handle_global_error("on_voice_state_update", e)
+                return
+
+    async def update_channel_activity(self, joined_channel, member):
+        if self.database.is_temp_channel(joined_channel.id) and not self.database.get_temp_channel_is_renamed(joined_channel.id):
+            hub_id = self.database.get_temp_channel_creator_id(joined_channel.id)
+
+            child_name_template = self.database.get_child_name(hub_id)
+            # Filter for activity
+            if "activity" not in child_name_template:
+                return
+
+            count = self.database.get_temp_channel_number(joined_channel.id)
+
+            activity_name = "General"
+            for activity in member.activities:
+                if activity.type == discord.ActivityType.playing:
+                    activity_name = activity.name
+
+            # Format the child channel name
+            formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
+            if len(formatted_child_name) > 100:
+                formatted_child_name = formatted_child_name[:97] + "..."
+
+            if formatted_child_name != joined_channel.name:
+                # rename channel
+                try:
+                    await joined_channel.edit(name=str(formatted_child_name))
+                    await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
+                except discord.Forbidden:
+                    await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                except Exception as e:
+                    await handle_global_error("on_voice_state_update", e)
+
+    async def delete_channel_async(self, left_channel, joined_channel, member):
+        # Filter for temporary channels
+        if self.database.is_temp_channel(left_channel.id):
+            # If the channel is empty, delete the channel
+            if len(left_channel.members) == 0:
+                try:
+                    await left_channel.delete()
+                except discord.Forbidden:
+                    await handle_bot_permission_error("manage_channels", channel=left_channel)
+                except Exception as e:
+                    await handle_global_error("delete_channel_async", e)
+                self.database.delete_temp_channel(left_channel.id)
+            # If owner leaves the channel, set owner to None
+            elif self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
+                self.database.set_owner_id(left_channel.id, None)
+                await cogs.tempchannels.control.update_info_embed(self.database, left_channel)
 
     async def send_control_view_async(self, channel):
         try:

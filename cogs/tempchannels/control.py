@@ -687,7 +687,9 @@ class CreateControlView(discord.ui.View):
             await interaction.response.defer()
             self.message = await interaction.followup.send(embeds=[info_embed, icons_embed], view=self)
         else:
-            self.message = await self.channel.send(embeds=[info_embed, icons_embed], view=self)
+            # Prevents error if channel is deleted before message send
+            if self.channel.id:
+                self.message = await self.channel.send(embeds=[info_embed, icons_embed], view=self)
 
     async def modify_button_callback(self, interaction: discord.Interaction):
         if self.database.get_owner_id(interaction.channel.id) != interaction.user.id:
