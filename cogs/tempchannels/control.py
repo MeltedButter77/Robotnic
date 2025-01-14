@@ -1,6 +1,7 @@
 import json
 import os
 import discord
+from aiohttp.web_routedef import delete
 from discord.ext import commands
 import discord.ui
 import databasecontrol
@@ -388,10 +389,8 @@ class FollowupView(discord.ui.View):
         return self.message
 
     async def on_timeout(self):
-        new_view = FollowupView(self.bot, self.database, self.channel)
         if self.message:
-            await self.message.edit(view=new_view)
-            new_view.message = self.message  # Attach the new view to the same message
+            await self.message.delete()
 
 
 class UpdatePermSelectMenu(discord.ui.MentionableSelect):
@@ -733,7 +732,6 @@ class CreateControlView(discord.ui.View):
         )
         embed.set_footer(text="This message will disappear in 10 seconds.")
         message = await interaction.followup.send(embed=embed, ephemeral=True)
-        await asyncio.sleep(10)
         await message.delete()
 
     async def delete_button_callback(self, interaction: discord.Interaction):
