@@ -163,7 +163,7 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
 
     # Define the text inputs
     child_name = discord.ui.TextInput(
-        label="Channel Names (Variables: {user}, {count}, {activity})",
+        label="NAME (Variables: {user}, {count}, {activity})",
         placeholder="Default: {user}'s Channel",
         required=False,
         max_length=25
@@ -363,9 +363,63 @@ class TempChannelsCog(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         """Listener to handle creation and deletion of temporary channels."""
         try:
-            tasks = []
-            left_channel = before.channel
             joined_channel = after.channel
+
+            # Handle channel creation if user joined a hub channel
+            if joined_channel:
+                channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
+                if joined_channel.id in channel_hub_ids:
+                    try:
+                        # Create the channel with an initial name (hourglass emoji)
+                        overwrites = {
+                            member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
+                        }
+                        channel = await member.guild.create_voice_channel(
+                            name="⏳",
+                            category=joined_channel.category,
+                            user_limit=self.database.get_user_limit(joined_channel.id) or 0,
+                            position=joined_channel.position,
+                            overwrites=overwrites,
+                        )
+
+                        # Move the user to the new channel as quickly as possible
+                        await member.move_to(channel)
+
+                        # Add the new channel to the database immediately
+                        count = 1
+                        existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
+                        while count in existing_numbers:
+                            count += 1
+
+                        self.database.add_temp_channel(
+                            member.guild.id, channel.id, joined_channel.id, member.id, count
+                        )
+
+                        # Prepare the proper activity name and formatted name for the channel
+                        activity_name = "General"
+                        for activity in member.activities:
+                            if activity.type == discord.ActivityType.playing:
+                                activity_name = activity.name
+                        child_name_template = self.database.get_child_name(joined_channel.id)
+                        formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
+                        if len(formatted_child_name) > 100:
+                            formatted_child_name = formatted_child_name[:97] + "..."
+
+                        # Update the channel name after user is in
+                        await channel.edit(name=formatted_child_name)
+
+                        # Schedule sending the control view message concurrently
+                        await self.send_control_view_async(channel)
+                        await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
+
+                    except discord.Forbidden:
+                        await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                        return
+                    except Exception as e:
+                        await handle_global_error("on_voice_state_update", e)
+                        return
+
+            left_channel = before.channel
 
             # Handle channel deletion if user left a channel
             if left_channel:
@@ -373,106 +427,44 @@ class TempChannelsCog(commands.Cog):
                 if self.database.is_temp_channel(left_channel.id):
                     # If the channel is empty, delete the channel
                     if len(left_channel.members) == 0:
-                        tasks.append(self.delete_channel_async(left_channel, member, before.channel))
+                        await self.delete_channel_async(left_channel, member, before.channel)
                         self.database.delete_temp_channel(before.channel.id)
                     # If owner leaves the channel, set owner to None
                     elif self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
                         self.database.set_owner_id(left_channel.id, None)
                         await cogs.tempchannels.control.update_info_embed(self.database, left_channel)
 
-            # Handle channel creation if user joined a hub channel
+            # Update activity channel names
             if joined_channel:
-                print(f"After voice update for '{member.name}' in '{joined_channel.name}' in '{member.guild.name}'")
-                channel_hub_ids = self.database.get_temp_channel_hubs(member.guild.id)
-                if joined_channel.id in channel_hub_ids:
-                    # Prepare data for channel creation
-                    child_name_template = self.database.get_child_name(joined_channel.id)
-                    existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
-
-                    # Find the next available channel number
-                    count = 1
-                    while count in existing_numbers:
-                        count += 1
-
-                    # Get proper activity name incase there is no activity
-                    activity_name = member.activities[0].name if member.activities else "General"
-
-                    # Format the child channel name
-                    formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
-                    user_limit = self.database.get_user_limit(joined_channel.id) or 0
-
-                    try:
-                        # Start creating the channel asynchronously
-                        overwrites = {
-                            member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
-                        }
-                        create_channel_task = asyncio.create_task(
-                            member.guild.create_voice_channel(
-                                name=formatted_child_name,
-                                category=joined_channel.category,
-                                user_limit=user_limit,
-                                overwrites=overwrites,
-                            )
-                        )
-
-                        # While the channel is being created, run other independent tasks
-                        if tasks:
-                            await asyncio.gather(*tasks)
-                            tasks = []  # Reset tasks list after running them
-
-                        # Wait for the channel to be created
-                        channel = await create_channel_task
-
-                        # Add the new channel to the database
-                        self.database.add_temp_channel(
-                            member.guild.id, channel.id, joined_channel.id, member.id, count
-                        )
-
-                        # Move the user to the new channel
-                        await member.move_to(channel)
-
-                        # Schedule sending the control view message concurrently
-                        await self.send_control_view_async(channel)
-
-                    except discord.Forbidden:
-                        # How do i know what permission was forbidden?
-                        await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
-                        return
-                    except Exception as e:
-                        await handle_global_error("on_voice_state_update", e)
-                        return
-
-            # Run any remaining tasks concurrently
-            if tasks:
-                await asyncio.gather(*tasks)
-
-            # TODO: This overwrites user custom names. Need to add way to track whether names are manually changed
-            if joined_channel:
-                if self.database.is_temp_channel(joined_channel.id):
+                if self.database.is_temp_channel(joined_channel.id) and not self.database.get_temp_channel_is_renamed(joined_channel.id):
                     hub_id = self.database.get_temp_channel_creator_id(joined_channel.id)
 
                     child_name_template = self.database.get_child_name(hub_id)
-                    existing_numbers = set(self.database.get_temp_channel_numbers(member.guild.id, joined_channel.id))
+                    # Filter for activity
+                    if "activity" not in child_name_template:
+                        return
 
-                    # Find the next available channel number
                     count = self.database.get_temp_channel_number(joined_channel.id)
 
-                    activity_name = member.activities[0].name if member.activities else "General"
+                    activity_name = "General"
+                    for activity in member.activities:
+                        if activity.type == discord.ActivityType.playing:
+                            activity_name = activity.name
 
                     # Format the child channel name
                     formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
+                    if len(formatted_child_name) > 100:
+                        formatted_child_name = formatted_child_name[:97] + "..."
 
                     if formatted_child_name != joined_channel.name:
                         # rename channel
                         try:
-                            print(str(formatted_child_name))
                             await joined_channel.edit(name=str(formatted_child_name))
+                            await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
                         except discord.Forbidden:
                             await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
                         except Exception as e:
                             await handle_global_error("on_voice_state_update", e)
-                    else:
-                        print(f"Channel name is already correct for '{member.name}' in '{joined_channel.name}' in '{member.guild.name}'")
 
         except Exception as error:
             print(f"Error in on_voice_state_update: {error}")

@@ -22,7 +22,7 @@ class ChannelState(Enum):
 
 
 async def create_info_embed(database: databasecontrol.Database, channel):
-    embed = discord.Embed(title=f"#{channel.name}", color=discord.Color.blue())
+    embed = discord.Embed(title=f"{channel.name}", color=discord.Color.blue())
 
     owner_id = database.get_owner_id(channel.id)
     if owner_id:
@@ -63,6 +63,8 @@ async def update_info_embed(database: databasecontrol.Database, channel):
     control_message = None
     async for message in channel.history(limit=1, oldest_first=True):
         control_message = message
+    if control_message is None:
+        return
     embeds = control_message.embeds
     embeds[0] = await create_info_embed(database, channel)
     await control_message.edit(embeds=embeds)
@@ -903,7 +905,9 @@ class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
 
     async def on_submit(self, interaction: discord.Interaction):
         # Update the channel
-        channel_name = self.channel_name.value or self.channel.name
+        channel_name = str(self.channel_name.value or self.channel.name)
+        if len(channel_name) > 100:
+            channel_name = channel_name[:97] + "..."
         user_limit = self.user_limit.value or str(self.channel.user_limit)
 
         if not user_limit.isnumeric():
@@ -916,7 +920,11 @@ class ModifyChannelModal(discord.ui.Modal, title="Edit Your Channel"):
             await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
             return
 
+        # Update the channel name and info embed
         await self.channel.edit(name=channel_name, user_limit=int(user_limit))
+        self.database.set_temp_channel_is_renamed(self.channel.id, True)
+        await update_info_embed(self.database, self.channel)
+
         embed = discord.Embed(
             title="Channel Updated",
             description="Your channel has been updated.",

@@ -29,7 +29,8 @@ class Database:
                     creator_id INTEGER,
                     owner_id INTEGER,
                     channel_state INTEGER,
-                    number INTEGER
+                    number INTEGER,
+                    is_renamed INTEGER
                 )
             """)
             cursor.execute("""
@@ -47,7 +48,8 @@ class Database:
                     'creator_id': ('INTEGER', 0),
                     'owner_id': ('INTEGER', 0),
                     'channel_state': ('INTEGER', 0),
-                    'number': ('INTEGER', 1)
+                    'number': ('INTEGER', 1),
+                    'is_renamed': ('INTEGER', 0)
                 },
                 'temp_channel_hubs': {
                     'child_name': ('TEXT', "{user}'s Channel"),
@@ -153,7 +155,6 @@ class Database:
                 'INSERT INTO temp_channels (guild_id, channel_id, creator_id, owner_id, channel_state, number) VALUES (?, ?, ?, ?, ?, ?)',
                 (guild_id, channel_id, creator_channel_id, owner_id, 0, number)
             )
-            print(f"Created Temp Channel Entry. channel_id: {channel_id}, guild_id: {guild_id}, number: {number}")
 
     def delete_temp_channel(self, channel_id: int):
         """Delete a temporary channel from the database."""
@@ -196,5 +197,18 @@ class Database:
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute('SELECT number FROM temp_channels WHERE channel_id = ?', (temp_channel_id,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+    def set_temp_channel_is_renamed(self, temp_channel_id: int, is_renamed: int):
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('UPDATE temp_channels SET is_renamed = ? WHERE channel_id = ?', (is_renamed, temp_channel_id,))
+            self.connection.commit()
+
+    def get_temp_channel_is_renamed(self, temp_channel_id: int) -> int:
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT is_renamed FROM temp_channels WHERE channel_id = ?', (temp_channel_id,))
             row = cursor.fetchone()
             return row[0] if row else None
