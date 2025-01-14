@@ -440,6 +440,8 @@ class TempChannelsCog(commands.Cog):
                 await self.send_control_view_async(channel)
                 await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
 
+                print(f"'{member.display_name}' has joined '{joined_channel.name}' in '{member.guild.name}' with the name template of '{child_name_template}'. Created '{channel.name}'.")
+
             except discord.Forbidden:
                 await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
                 return
