@@ -418,10 +418,16 @@ class TempChannelsCog(commands.Cog):
                 )
 
                 # Prepare the proper activity name and formatted name for the channel
-                activity_name = "General"
-                for activity in member.activities:
-                    if activity.type == discord.ActivityType.playing:
-                        activity_name = activity.name
+                activities = []
+                for member in joined_channel.members:
+                    for activity in member.activities:
+                        if activity.type == discord.ActivityType.playing:
+                            activities.append(activity.name)
+                if len(activities) <= 0:
+                    activities.append("General")
+                activities.sort(key=len)
+                activity_name = ", ".join(activities)
+
                 child_name_template = self.database.get_child_name(joined_channel.id)
                 formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
                 if len(formatted_child_name) > 100:
@@ -452,10 +458,15 @@ class TempChannelsCog(commands.Cog):
 
             count = self.database.get_temp_channel_number(joined_channel.id)
 
-            activity_name = "General"
-            for activity in member.activities:
-                if activity.type == discord.ActivityType.playing:
-                    activity_name = activity.name
+            activities = []
+            for member in joined_channel.members:
+                for activity in member.activities:
+                    if activity.type == discord.ActivityType.playing:
+                        activities.append(activity.name)
+            if len(activities) <= 0:
+                activities.append("General")
+            activities.sort(key=len)
+            activity_name = ", ".join(activities)
 
             # Format the child channel name
             formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
