@@ -436,9 +436,11 @@ class TempChannelsCog(commands.Cog):
                 # Update the channel name after user is in
                 await channel.edit(name=formatted_child_name)
 
+                # Refetch the channel to ensure updated data
+                channel = await channel.guild.fetch_channel(channel.id)
+
                 # Schedule sending the control view message concurrently
                 await self.send_control_view_async(channel)
-                await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
 
             except discord.Forbidden:
                 await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
@@ -477,6 +479,10 @@ class TempChannelsCog(commands.Cog):
                 # rename channel
                 try:
                     await joined_channel.edit(name=str(formatted_child_name))
+
+                    # Refetch the channel to ensure updated data
+                    joined_channel = await joined_channel.guild.fetch_channel(joined_channel.id)
+
                     await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
                 except discord.Forbidden:
                     await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
