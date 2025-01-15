@@ -387,7 +387,7 @@ class TempChannelsCog(commands.Cog):
             try:
                 # Create the channel with an initial name (hourglass emoji)
                 overwrites = {
-                    member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
+                    member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True, connect=True),
                 }
                 channel = await member.guild.create_voice_channel(
                     name="⏳",
