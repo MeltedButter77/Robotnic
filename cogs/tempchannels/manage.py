@@ -313,7 +313,7 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
 
     # Define the text inputs
     child_name = discord.ui.TextInput(
-        label="Channel Names (Variables: {user}, {count}, {activity})",
+        label="NAME (Variables: {user}, {count}, {activity})",
         placeholder="Default: {user}'s Channel",
         required=False,
         max_length=25
