@@ -398,7 +398,10 @@ class FollowupView(discord.ui.View):
 
     async def on_timeout(self):
         if self.message:
-            await self.message.delete()
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
 
 
 class UpdatePermSelectMenu(discord.ui.MentionableSelect):
