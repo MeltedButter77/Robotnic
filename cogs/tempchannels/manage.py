@@ -445,7 +445,7 @@ class TempChannelsCog(commands.Cog):
                 print(f"'{member.display_name}' has joined '{joined_channel.name}' in '{member.guild.name}' with the name template of '{child_name_template}'. Created '{channel.name}'.")
 
             except discord.Forbidden:
-                await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                await handle_bot_permission_error("manage_channels, view_channels, connect", user=member, channel=joined_channel)
                 return
             except Exception as e:
                 await handle_global_error("on_voice_state_update", e)

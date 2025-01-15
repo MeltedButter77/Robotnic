@@ -87,7 +87,7 @@ async def handle_bot_permission_error(permission: str, interaction=None, user=No
 
     embed = discord.Embed(
         title="Bot Permission Error",
-        description=f"Please contact the server administrators. If you believe this is an error, please report this issue below.",
+        description=f"Please ensure i have access to the following permissions in any category you would like a creator channel in.",
         color=discord.Color.red()
     )
     embed.add_field(
