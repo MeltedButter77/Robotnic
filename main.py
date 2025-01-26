@@ -1,12 +1,14 @@
 import json
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import os
 import databasecontrol
+from topgg import DBLClient
 
 load_dotenv()
 token = str(os.getenv("TOKEN"))
+topgg_token = str(os.getenv("TOPGG_TOKEN"))
 
 # Load the configuration from config.json
 base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
@@ -29,11 +31,26 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
 
-        server_count = len(bot.guilds)
-        await bot.change_presence(activity=discord.CustomActivity(name=f"Online in {server_count} Servers"))
+        await self.init_topgg()
 
         await self.setup_cogs()
         await self.send_notification()
+        self.update_server_count.start()  # Start the server count update loop
+
+    async def init_topgg(self):
+        self.topgg_client = DBLClient(self, topgg_token)  # Initialize the Top.gg client
+
+    @tasks.loop(minutes=30)  # Update the server count every 30 minutes
+    async def update_server_count(self):
+        try:
+            server_count = len(self.guilds)
+            await self.change_presence(activity=discord.CustomActivity(name=f"Online in {server_count} Servers"))
+            print(f"Updated server count ({server_count}) to status")
+            if self.user.id == 853490879753617458:
+                await self.topgg_client.post_guild_count()  # Post the server count to Top.gg
+                print(f"Posted server count ({server_count}) to Top.gg!")
+        except Exception as e:
+            print(f"Failed to post server count to Top.gg: {e}")
 
     async def on_guild_join(self, guild):
         # This event is triggered when the bot joins a new guild
