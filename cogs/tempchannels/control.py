@@ -81,15 +81,23 @@ class KickControlView(discord.ui.View):
         self.database = database
         self.channel = channel
         self.message = None
+        self.is_ban = is_ban
 
         self.add_item(KickSelectMenu(bot, self.database, self.channel, is_ban))
 
     async def send_initial_message(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="👟 Who would you like to kick from your channel?",
-            description=f"You have 60 seconds to select at least one member.",
-            color=0x00ff00
-        )
+        if not self.is_ban:
+            embed = discord.Embed(
+                title="👟 Who would you like to kick from your channel?",
+                description=f"You have 60 seconds to select at least one member.",
+                color=0x00ff00
+            )
+        else:
+            embed = discord.Embed(
+                title="🔨 Who would you like to ban from your channel?",
+                description=f"You have 60 seconds to select at least one member.",
+                color=0x00ff00
+            )
         await interaction.response.defer()
         self.message = await interaction.followup.send(embed=embed, view=self, ephemeral=True, wait=True)  # wait ensures that self.message is set before continuing
 
@@ -390,7 +398,10 @@ class FollowupView(discord.ui.View):
 
     async def on_timeout(self):
         if self.message:
-            await self.message.delete()
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
 
 
 class UpdatePermSelectMenu(discord.ui.MentionableSelect):

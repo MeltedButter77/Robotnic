@@ -313,7 +313,7 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
 
     # Define the text inputs
     child_name = discord.ui.TextInput(
-        label="Channel Names (Variables: {user}, {count}, {activity})",
+        label="NAME (Variables: {user}, {count}, {activity})",
         placeholder="Default: {user}'s Channel",
         required=False,
         max_length=25
@@ -387,7 +387,7 @@ class TempChannelsCog(commands.Cog):
             try:
                 # Create the channel with an initial name (hourglass emoji)
                 overwrites = {
-                    member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True),
+                    member.guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True, connect=True),
                 }
                 channel = await member.guild.create_voice_channel(
                     name="⏳",
@@ -445,7 +445,7 @@ class TempChannelsCog(commands.Cog):
                 print(f"'{member.display_name}' has joined '{joined_channel.name}' in '{member.guild.name}' with the name template of '{child_name_template}'. Created '{channel.name}'.")
 
             except discord.Forbidden:
-                await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                await handle_bot_permission_error("manage_channels, view_channels, connect", user=member, channel=joined_channel)
                 return
             except Exception as e:
                 await handle_global_error("on_voice_state_update", e)
