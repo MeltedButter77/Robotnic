@@ -468,6 +468,9 @@ class TempChannelsCog(commands.Cog):
             # template has {count}, {activity} and {user} which are filled below
             child_name_template = self.database.get_child_name(hub_id)
 
+            if "{user}" not in child_name_template and "{activity}" not in child_name_template:
+                continue
+
             count = self.database.get_temp_channel_number(channel.id)
 
             activities = []
