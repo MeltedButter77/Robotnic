@@ -454,7 +454,7 @@ class TempChannelsCog(commands.Cog):
     @tasks.loop(minutes=2)
     async def update_channels_name(self):
         channels = self.database.get_temp_notrenamed_channels()
-        print(f"Updating names of {len(channels)} temp channels")
+        print(f"Updating names of {len(channels)} temp channels {[self.bot.get_channel(channel_id) for channel_id in channels]}")
 
         if len(channels) <= 0:
             return
