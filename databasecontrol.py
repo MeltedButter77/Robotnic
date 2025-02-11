@@ -212,3 +212,9 @@ class Database:
             cursor.execute('SELECT is_renamed FROM temp_channels WHERE channel_id = ?', (temp_channel_id,))
             row = cursor.fetchone()
             return row[0] if row else None
+
+    def get_temp_notrenamed_channels(self):
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute(f'SELECT channel_id FROM temp_channels WHERE is_renamed = ?', (0,))
+            return [row[0] for row in cursor.fetchall()]

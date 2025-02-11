@@ -1,5 +1,6 @@
 import asyncio
 from discord import app_commands
+from discord.ext import tasks
 import databasecontrol
 from error_handling import handle_bot_permission_error, handle_command_error, handle_global_error, \
     handle_user_permission_error
@@ -349,6 +350,7 @@ class TempChannelsCog(commands.Cog):
     def __init__(self, bot: commands.Bot, database):
         self.bot = bot
         self.database = database
+        self.update_channels_name.start()  # Start the loop when the cog is loaded
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
@@ -372,10 +374,6 @@ class TempChannelsCog(commands.Cog):
             # Handle channel deletion if user left a channel
             if before.channel:
                 await self.delete_channel_async(before.channel, after.channel, member)
-
-            # Update activity channel name
-            if after.channel:
-                await self.update_channel_activity(after.channel, member)
 
         except Exception as error:
             print(f"Error in on_voice_state_update: {error}")
@@ -419,10 +417,11 @@ class TempChannelsCog(commands.Cog):
 
                 # Prepare the proper activity name and formatted name for the channel
                 activities = []
-                for member in joined_channel.members:
+                for member in channel.members:
                     for activity in member.activities:
                         if activity.type == discord.ActivityType.playing:
-                            activities.append(activity.name)
+                            if activity.name.lower() not in (name.lower() for name in activities):
+                                activities.append(activity.name)
                 if len(activities) <= 0:
                     activities.append("General")
                 activities.sort(key=len)
@@ -451,43 +450,59 @@ class TempChannelsCog(commands.Cog):
                 await handle_global_error("on_voice_state_update", e)
                 return
 
-    async def update_channel_activity(self, joined_channel, member):
-        if self.database.is_temp_channel(joined_channel.id) and not self.database.get_temp_channel_is_renamed(joined_channel.id):
-            hub_id = self.database.get_temp_channel_creator_id(joined_channel.id)
+    # Updates count, owner & activity for every temp_channel
+    @tasks.loop(minutes=2)
+    async def update_channels_name(self):
+        channels = self.database.get_temp_notrenamed_channels()
+        print(f"Updating names of {len(channels)} temp channels")
 
+        if len(channels) <= 0:
+            return
+
+        for channel_id in channels:
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                continue
+            hub_id = self.database.get_temp_channel_creator_id(channel_id)
+
+            # template has {count}, {activity} and {user} which are filled below
             child_name_template = self.database.get_child_name(hub_id)
-            # Filter for activity
-            if "activity" not in child_name_template:
-                return
 
-            count = self.database.get_temp_channel_number(joined_channel.id)
+            count = self.database.get_temp_channel_number(channel.id)
 
             activities = []
-            for member in joined_channel.members:
+            for member in channel.members:
                 for activity in member.activities:
                     if activity.type == discord.ActivityType.playing:
-                        activities.append(activity.name)
+                        if activity.name.lower() not in (name.lower() for name in activities):
+                            activities.append(activity.name)
             if len(activities) <= 0:
                 activities.append("General")
             activities.sort(key=len)
             activity_name = ", ".join(activities)
 
+            channel_owner_id = self.database.get_owner_id(channel.id)
+            channel_owner = self.bot.get_user(channel_owner_id)
+            channel_owner_display_name = "Noone"
+            if channel_owner:
+                channel_owner_display_name = channel_owner.display_name
+
             # Format the child channel name
-            formatted_child_name = child_name_template.format(count=count, user=member.display_name, activity=activity_name)
+            formatted_child_name = child_name_template.format(count=count, user=channel_owner_display_name, activity=activity_name)
             if len(formatted_child_name) > 100:
                 formatted_child_name = formatted_child_name[:97] + "..."
 
-            if formatted_child_name != joined_channel.name:
-                # rename channel
+            # rename channel now that the name is formatted
+            if formatted_child_name != channel.name:
                 try:
-                    await joined_channel.edit(name=str(formatted_child_name))
+                    await channel.edit(name=str(formatted_child_name))
 
-                    # Refetch the channel to ensure updated data
-                    joined_channel = await joined_channel.guild.fetch_channel(joined_channel.id)
+                    # Re-fetch the channel to ensure updated data for updating info embed
+                    channel = await channel.guild.fetch_channel(channel.id)
 
-                    await cogs.tempchannels.control.update_info_embed(self.database, joined_channel)
+                    await cogs.tempchannels.control.update_info_embed(self.database, channel)
                 except discord.Forbidden:
-                    await handle_bot_permission_error("manage_channels", user=member, channel=joined_channel)
+                    await handle_bot_permission_error("manage_channels", user=channel_owner, channel=channel)
                 except Exception as e:
                     await handle_global_error("on_voice_state_update", e)
 
