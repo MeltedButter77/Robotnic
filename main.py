@@ -118,6 +118,22 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
         database.connect()
 
         # Load cogs/extensions
+        print("Unloading extensions")
+        try:
+            await self.unload_extension("cogs.utils")
+        except commands.ExtensionNotLoaded:
+            pass  # Ignore if not loaded
+        try:
+            await self.unload_extension("cogs.tempchannels.manage")
+        except commands.ExtensionNotLoaded:
+            pass
+        try:
+            await self.unload_extension("cogs.tempchannels.control")
+        except commands.ExtensionNotLoaded:
+            pass
+
+        # Now safely reload them
+        print("Loading extensions")
         await self.load_extension("cogs.utils")
         await self.load_extension_with_args("cogs.tempchannels.manage", database)
         await self.load_extension_with_args("cogs.tempchannels.control", database)
