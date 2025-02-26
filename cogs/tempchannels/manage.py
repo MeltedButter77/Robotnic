@@ -530,7 +530,7 @@ class TempChannelsCog(commands.Cog):
 
             channel_owner_id = self.database.get_owner_id(channel.id)
             channel_owner = self.bot.get_user(channel_owner_id)
-            channel_owner_display_name = "Noone"
+            channel_owner_display_name = "No Owner"
             if channel_owner:
                 channel_owner_display_name = channel_owner.display_name
 
