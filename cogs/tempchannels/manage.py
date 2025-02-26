@@ -193,7 +193,10 @@ class CreateCreatorModal(discord.ui.Modal, title="Create New Creator Channel"):
         if user_limit == "":
             user_limit = 0
         else:
-            user_limit = int(user_limit)
+            try:
+                user_limit = int(user_limit)
+            except ValueError:
+                user_limit = 0
         self.database.add_temp_channel_hub(interaction.guild.id, channel.id, temp_child_name, user_limit)
 
         # Create an embed with channel information
@@ -262,16 +265,21 @@ class EditCreatorView(View):
             color=0x00ff00
         )
         embed.add_field(name="Name", value=self.selected_channel.name, inline=True)
-        embed.add_field(name="Mention", value=self.selected_channel.mention, inline=True)
+        embed.add_field(name="Mention/Link", value=self.selected_channel.mention, inline=True)
         embed.add_field(name="ID", value=str(self.selected_channel.id), inline=True)
+
         category = f"<#{self.selected_channel.category_id}>" if self.selected_channel.category_id else "None"
-        embed.add_field(name="Category", value=category, inline=True)
+        embed.add_field(name="Category", value=category, inline=False)
+
         child_name = self.database.get_child_name(self.selected_channel.id)
         embed.add_field(name="Child Names", value=child_name, inline=True)
+
         user_limit = self.database.get_user_limit(self.selected_channel.id)
-        if user_limit == 0:
-            user_limit = "Unlimited"
-        embed.add_field(name="User Limit", value=user_limit, inline=True)
+        embed.add_field(name="Child User Limit", value="Unlimited" if user_limit == 0 else user_limit, inline=True)
+
+        child_category_id = self.database.get_child_category_id(self.selected_channel.id)
+        category_name = "Parent Category" if child_category_id == 0 else self.selected_channel.guild.get_channel(child_category_id).name
+        embed.add_field(name="Child Category", value=category_name, inline=True)
 
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -312,33 +320,59 @@ class EditCreatorModal(discord.ui.Modal, title="Edit Creator Channel"):
         self.database = database
         self.selected_channel = selected_channel
 
-    # Define the text inputs
-    child_name = discord.ui.TextInput(
-        label="NAME (Variables: {user}, {count}, {activity})",
-        placeholder="Default: {user}'s Channel",
-        required=False,
-        max_length=25
-    )
-    user_limit = discord.ui.TextInput(
-        label="User Limit (Unlimited = 0)",
-        placeholder="Default: 0",
-        required=False,
-        max_length=2
-    )
+        def truncate(text, max_length=25):
+            return text if len(text) <= max_length else text[:max_length] + "..."
+
+        child_name_placeholder = truncate(f"Current: {self.database.get_child_name(self.selected_channel.id)}")
+        user_limit_placeholder = truncate(f"Current: {self.database.get_user_limit(self.selected_channel.id)}")
+        child_category_placeholder = truncate(f"Current: {self.database.get_child_category_id(self.selected_channel.id)}")
+
+        # Define the text inputs
+        self.input_child_name = discord.ui.TextInput(
+            label="NAME (Variables: {user}, {count}, {activity})",
+            placeholder=child_name_placeholder,
+            required=False,
+            max_length=25
+        )
+        self.input_user_limit = discord.ui.TextInput(
+            label="User Limit (Unlimited = 0)",
+            placeholder=user_limit_placeholder,
+            required=False,
+            max_length=2
+        )
+        self.input_child_category = discord.ui.TextInput(
+            label="Child Category ID (Under creator = 0)",
+            placeholder=child_category_placeholder,
+            required=False,
+            max_length=25
+        )
+
+        self.add_item(self.input_child_name)
+        self.add_item(self.input_user_limit)
+        self.add_item(self.input_child_category)
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Create a new voice channel and add it to the database
-        temp_child_name = interaction.data["components"][0]["components"][0]["value"]
-        if temp_child_name == "":
-            temp_child_name = "{user}'s Channel"
-        user_limit = interaction.data["components"][1]["components"][0]["value"]
-        if user_limit == "":
-            user_limit = 0
-        else:
-            user_limit = int(user_limit)
+        current_temp_child_name = self.database.get_child_name(self.selected_channel.id)
+        current_user_limit = self.database.get_user_limit(self.selected_channel.id)
+        current_child_category = self.database.get_child_category_id(self.selected_channel.id)
 
+        # Create a new voice channel and add it to the database
+        temp_child_name = str(self.input_child_name.value) if self.input_child_name.value else str(current_temp_child_name)
+        user_limit = self.input_user_limit.value if self.input_user_limit.value else current_user_limit
+        child_category_id = self.input_child_category.value if self.input_child_category.value else current_child_category
+
+        try:
+            user_limit = int(user_limit)
+        except ValueError:
+            user_limit = current_user_limit
+        try:
+            child_category_id = int(child_category_id)
+        except ValueError:
+            child_category_id = child_category_id
+
+        # Update database
         self.database.delete_temp_channel_hub(interaction.guild.id, self.selected_channel.id)
-        self.database.add_temp_channel_hub(interaction.guild.id, self.selected_channel.id, temp_child_name, user_limit)
+        self.database.add_temp_channel_hub(interaction.guild.id, self.selected_channel.id, temp_child_name, user_limit, child_category_id)
 
         # Create an embed with channel information
         await EditCreatorView(self.bot, self.database, self.selected_channel).send_message(interaction)
@@ -389,7 +423,7 @@ class TempChannelsCog(commands.Cog):
                 }
                 channel = await member.guild.create_voice_channel(
                     name="⏳",
-                    category=joined_channel.category,
+                    category=joined_channel.guild.get_channel(self.database.get_child_category_id(joined_channel.id)) or joined_channel.category,
                     user_limit=self.database.get_user_limit(joined_channel.id) or 0,
                     position=joined_channel.position,
                     overwrites=overwrites,
