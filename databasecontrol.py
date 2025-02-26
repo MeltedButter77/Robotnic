@@ -12,6 +12,8 @@ class Database:
     def connect(self):
         """Connect to the SQLite database and ensure tables exist."""
         self.connection = sqlite3.connect(self.db_path)
+        print(f"Connected to database at {self.db_path}")
+        print("Ensuring tables exist...")
         self._ensure_tables()
 
     def _ensure_tables(self):
@@ -38,7 +40,8 @@ class Database:
                     guild_id INTEGER,
                     channel_id INTEGER,
                     child_name TEXT,
-                    user_limit INTEGER
+                    user_limit INTEGER,
+                    child_category_id INTEGER
                 )
             """)
 
@@ -53,7 +56,8 @@ class Database:
                 },
                 'temp_channel_hubs': {
                     'child_name': ('TEXT', "{user}'s Channel"),
-                    'user_limit': ('INTEGER', 0)
+                    'user_limit': ('INTEGER', 0),
+                    'child_category_id': ('INTEGER', 0)
                 }
             }
 
@@ -75,6 +79,7 @@ class Database:
 
                 # Commit the changes
                 self.connection.commit()
+            print("Tables ensured.")
 
     def close(self):
         """Close the database connection."""
@@ -119,13 +124,13 @@ class Database:
             row = cursor.fetchone()
             return row[0] if row else None
 
-    def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int, user_limit: int):
+    def add_temp_channel_hub(self, guild_id: int, channel_id: int, child_name: int, user_limit: int, child_category_id: int = 0):
         """Add a new temporary channel hub to the database."""
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute(
-                'INSERT INTO temp_channel_hubs (guild_id, channel_id, child_name, user_limit) VALUES (?, ?, ?, ?)',
-                (guild_id, channel_id, child_name, user_limit)
+                'INSERT INTO temp_channel_hubs (guild_id, channel_id, child_name, user_limit, child_category_id) VALUES (?, ?, ?, ?, ?)',
+                (guild_id, channel_id, child_name, user_limit, child_category_id)
             )
 
     def delete_temp_channel_hub(self, guild_id: int, channel_id: int):
@@ -218,3 +223,10 @@ class Database:
             cursor = self.connection.cursor()
             cursor.execute(f'SELECT channel_id FROM temp_channels WHERE is_renamed = ?', (0,))
             return [row[0] for row in cursor.fetchall()]
+
+    def get_child_category_id(self, channel_hub_id: int) -> int:
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT child_category_id FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
+            row = cursor.fetchone()
+            return row[0] if row else None
