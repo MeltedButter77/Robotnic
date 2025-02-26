@@ -218,15 +218,15 @@ class Database:
             row = cursor.fetchone()
             return row[0] if row else None
 
-    def get_temp_notrenamed_channels(self):
-        with self.connection:
-            cursor = self.connection.cursor()
-            cursor.execute(f'SELECT channel_id FROM temp_channels WHERE is_renamed = ?', (0,))
-            return [row[0] for row in cursor.fetchall()]
-
     def get_child_category_id(self, channel_hub_id: int) -> int:
         with self.connection:
             cursor = self.connection.cursor()
             cursor.execute('SELECT child_category_id FROM temp_channel_hubs WHERE channel_id = ?', (channel_hub_id,))
             row = cursor.fetchone()
             return row[0] if row else None
+
+    def get_temp_channels(self) -> List[int]:
+        with self.connection:
+            cursor = self.connection.cursor()
+            cursor.execute('SELECT channel_id FROM temp_channels')
+            return [row[0] for row in cursor.fetchall()]

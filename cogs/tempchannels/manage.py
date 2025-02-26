@@ -487,16 +487,24 @@ class TempChannelsCog(commands.Cog):
     # Updates count, owner & activity for every temp_channel
     @tasks.loop(minutes=2)
     async def update_channels_name(self):
-        channels = self.database.get_temp_notrenamed_channels()
+        channels = self.database.get_temp_channels()
         print(f"Updating names of {len(channels)} temp channels {[self.bot.get_channel(channel_id) for channel_id in channels]}")
 
         if len(channels) <= 0:
             return
 
         for channel_id in channels:
+            if self.database.get_temp_channel_is_renamed(channel_id):
+                continue
+
             channel = self.bot.get_channel(channel_id)
             if not channel:
+                self.database.delete_temp_channel(channel_id)
                 continue
+            if len(channel.members) == 0:
+                await self.delete_channel_async(channel, None, None)
+                continue
+
             hub_id = self.database.get_temp_channel_creator_id(channel_id)
 
             # template has {count}, {activity} and {user} which are filled below
@@ -556,9 +564,10 @@ class TempChannelsCog(commands.Cog):
                     await handle_global_error("delete_channel_async", e)
                 self.database.delete_temp_channel(left_channel.id)
             # If owner leaves the channel, set owner to None
-            elif self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
-                self.database.set_owner_id(left_channel.id, None)
-                await cogs.tempchannels.control.update_info_embed(self.database, left_channel)
+            elif member:
+                if self.database.get_owner_id(left_channel.id) == member.id and (not joined_channel or joined_channel.id != left_channel.id):
+                    self.database.set_owner_id(left_channel.id, None)
+                    await cogs.tempchannels.control.update_info_embed(self.database, left_channel)
 
     async def send_control_view_async(self, channel):
         try:
