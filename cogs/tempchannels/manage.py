@@ -494,9 +494,6 @@ class TempChannelsCog(commands.Cog):
             return
 
         for channel_id in channels:
-            if self.database.get_temp_channel_is_renamed(channel_id):
-                continue
-
             channel = self.bot.get_channel(channel_id)
             # Remove invalid and empty
             if not channel:
