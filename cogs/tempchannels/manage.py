@@ -494,15 +494,15 @@ class TempChannelsCog(commands.Cog):
             return
 
         for channel_id in channels:
-            if self.database.get_temp_channel_is_renamed(channel_id):
-                continue
-
             channel = self.bot.get_channel(channel_id)
             if not channel:
                 self.database.delete_temp_channel(channel_id)
                 continue
             if len(channel.members) == 0:
                 await self.delete_channel_async(channel, None, None)
+                continue
+
+            if self.database.get_temp_channel_is_renamed(channel_id):
                 continue
 
             hub_id = self.database.get_temp_channel_creator_id(channel_id)
