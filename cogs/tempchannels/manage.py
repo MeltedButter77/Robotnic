@@ -494,7 +494,11 @@ class TempChannelsCog(commands.Cog):
             return
 
         for channel_id in channels:
+            if self.database.get_temp_channel_is_renamed(channel_id):
+                continue
+
             channel = self.bot.get_channel(channel_id)
+            # Remove invalid and empty
             if not channel:
                 self.database.delete_temp_channel(channel_id)
                 continue
@@ -502,6 +506,7 @@ class TempChannelsCog(commands.Cog):
                 await self.delete_channel_async(channel, None, None)
                 continue
 
+            # Filter renamed channels
             if self.database.get_temp_channel_is_renamed(channel_id):
                 continue
 
@@ -528,7 +533,7 @@ class TempChannelsCog(commands.Cog):
 
             channel_owner_id = self.database.get_owner_id(channel.id)
             channel_owner = self.bot.get_user(channel_owner_id)
-            channel_owner_display_name = "Noone"
+            channel_owner_display_name = "No Owner"
             if channel_owner:
                 channel_owner_display_name = channel_owner.display_name
 
