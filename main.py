@@ -40,12 +40,17 @@ class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
     async def init_topgg(self):
         self.topgg_client = DBLClient(self, topgg_token)  # Initialize the Top.gg client
 
-    @tasks.loop(minutes=30)  # Update the server count every 30 minutes
+    @tasks.loop(hours=12)  # Update the server count every 30 minutes
     async def update_server_count(self):
         try:
+            total_users = 0
+            for server in self.guilds:
+                total_users += server.member_count
+
             server_count = len(self.guilds)
-            await self.change_presence(activity=discord.CustomActivity(name=f"Online in {server_count} Servers"))
-            print(f"Updated server count ({server_count}) to status")
+            await self.change_presence(activity=discord.CustomActivity(name=f"Online in {server_count} Servers | {total_users} Users"))
+            print(f"Updated server count ({server_count}) and user count ({total_users}) to status")
+
             if self.user.id == 853490879753617458:
                 await self.topgg_client.post_guild_count()  # Post the server count to Top.gg
                 print(f"Posted server count ({server_count}) to Top.gg!")
