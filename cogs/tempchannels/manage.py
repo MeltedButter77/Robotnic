@@ -495,7 +495,7 @@ class TempChannelsCog(commands.Cog):
 
         for channel_id in channels:
             channel = self.bot.get_channel(channel_id)
-            print(channel.members)
+            print(len(channel.members), "-", channel.name, "-", channel.guild.name, channel.members)
             # Remove invalid and empty
             if not channel:
                 self.database.delete_temp_channel(channel_id)
