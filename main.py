@@ -1,164 +1,143 @@
 import json
-import discord
-from discord.ext import commands, tasks
-from dotenv import load_dotenv
 import os
-import databasecontrol
-from topgg import DBLClient
+import sys
+import discord
+import logging
+import dotenv
+from handle_voice import user_join, user_move, user_leave
+from database import Database
 
-load_dotenv()
-token = str(os.getenv("TOKEN"))
-topgg_token = str(os.getenv("TOPGG_TOKEN"))
+# Directories
+script_dir = os.path.dirname(os.path.abspath(__file__))
+log_path = os.path.join(script_dir, 'discord.log')
+env_path = os.path.join(script_dir, '.env')
+settings_path = os.path.join(script_dir, "settings.json")
 
-# Load the configuration from config.json
-base_directory = os.getenv('BASE_DIR', os.path.dirname(os.path.abspath(__file__)))
-config_path = os.path.join(base_directory, 'config.json')
-# Load the configuration from config.json
-with open(config_path) as config_file:
-    config = json.load(config_file)
+# Default settings
+default_settings = {
+    "logging": {
+        "discord": False,
+        "app": False
+    }
+}
 
-# Define the intents
-intents = discord.Intents.default()
-intents.message_content = True
-intents.presences = True
-intents.members = True
+# Create settings file if it doesn't exist
+if not os.path.exists(settings_path):
+    with open(settings_path, "w") as f:
+        json.dump(default_settings, f, indent=4)
+    print(f"Created default settings.json at {settings_path}. Edit to change debug settings.")
+
+# Load settings
+with open(settings_path, "r") as f:
+    settings = json.load(f)
+discord_debug = settings["logging"].get("discord", False)
+app_debug = settings["logging"].get("app", False)
+
+# File handler (shared)
+file_handler = logging.FileHandler(filename=log_path, encoding='utf-8', mode='w')
+file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+
+# Console handler (shared)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s: %(message)s'))
+
+# Pycord library logger
+discord_logger = logging.getLogger('discord')
+discord_logger.setLevel(logging.DEBUG if discord_debug else logging.INFO)
+
+# Application logger
+app_logger = logging.getLogger('app')
+app_logger.setLevel(logging.DEBUG if app_debug else logging.INFO)
+
+# Attach handlers to the loggers
+discord_logger.addHandler(file_handler)
+discord_logger.addHandler(console_handler)
+app_logger.addHandler(file_handler)
+app_logger.addHandler(console_handler)
+
+app_logger.info("App logger initialized")
+discord_logger.info("Discord logger initialized")
+
+# Check if .env exists, if not create a new one
+placeholder = "TOKEN_HERE"
+if not os.path.exists(env_path):
+    with open(env_path, 'w') as f:
+        f.write(f"TOKEN={placeholder}\n")
+    app_logger.error(
+        "No .env file found, one has been created. "
+        "Please replace 'TOKEN_HERE' with your actual bot token."
+    )
+    sys.exit(1)
+else:
+    app_logger.debug(
+        "Valid .env file found. "
+    )
+
+# Get Token
+dotenv.load_dotenv()
+client_token = os.getenv("TOKEN")
+# Handle placeholder or no token
+if client_token == placeholder or not client_token:
+    app_logger.error(
+        "No valid TOKEN found in .env. "
+        "Please replace 'TOKEN_HERE' with your actual bot token."
+    )
+    sys.exit(1)
+else:
+    app_logger.debug(
+        "Token found. "
+    )
 
 
-class Bot(commands.AutoShardedBot):  # Use AutoShardedBot for scalability
-    def __init__(self):
-        super().__init__(command_prefix='/', intents=intents)
+# Subclassed discord.Client allowing for methods to correspond directly with bot triggers
+class Bot(discord.Bot):
+    def __init__(self, token):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super().__init__(intents=intents)
+        self.token = token
 
     async def on_ready(self):
-        print(f'Logged in as {self.user} (ID: {self.user.id})')
+        app_logger.info(f'Logged in as {self.user}')
 
-        await self.init_topgg()
+    async def on_message(self, message):
+        # Ignore self messages from bot
+        if message.author == self.user:
+            return
 
-        await self.setup_cogs()
-        await self.send_notification()
-        self.update_server_count.start()  # Start the server count update loop
+        # Ping command
+        if message.content.lower() == "!ping":
+            app_logger.debug(f"!ping triggered by {message.author}")
+            await message.channel.send("Pong!")
 
-    async def init_topgg(self):
-        self.topgg_client = DBLClient(self, topgg_token)  # Initialize the Top.gg client
-
-    @tasks.loop(hours=12)  # Update the server count every 30 minutes
-    async def update_server_count(self):
+    def run(self):
         try:
-            total_users = 0
-            for server in self.guilds:
-                total_users += server.member_count
-
-            server_count = len(self.guilds)
-            await self.change_presence(activity=discord.CustomActivity(name=f"Online in {server_count} Servers | {total_users} Users"))
-            print(f"Updated server count ({server_count}) and user count ({total_users}) to status")
-
-            if self.user.id == 853490879753617458:
-                await self.topgg_client.post_guild_count()  # Post the server count to Top.gg
-                print(f"Posted server count ({server_count}) to Top.gg!")
+            super().run(self.token)
         except Exception as e:
-            print(f"Failed to post server count to Top.gg: {e}")
-
-    async def on_guild_join(self, guild):
-        # This event is triggered when the bot joins a new guild
-        for channel in guild.text_channels:
-            if channel.permissions_for(guild.me).send_messages:
-                embed = discord.Embed(
-                    title=f"Hello {guild.name}! 🎉",
-                    description="Thank you for inviting me to your server! 😊\nHere are some commands to get started.",
-                    color=discord.Color.blue()
-                )
-                embed.add_field(
-                    name="/setup_creators",
-                    value="Allows an admin to setup a channel creator (or channel hub) which dynamically creates voice channels when users join them.",
-                    inline=False
-                )
-                embed.set_footer(text="Need more help? Reach out to support below!")
-                view = discord.ui.View()
-                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url,
-                                                label="Contact Support",
-                                                url=f"{config['support_server']}"))
-                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url,
-                                                label="Visit Website",
-                                                url=f"{config['website']}"))
-                await channel.send(embed=embed, view=view)
-                break
-
-        if self.user.id == 853490879753617458:
-            notification_channel = self.get_channel(int(config["sync_channel_id"]))
-        else:
-            notification_channel = self.get_channel(int(config["testing_sync_channel_id"]))
-        if notification_channel is not None:
-            # Get the guild information
-            guild_name = guild.name
-            guild_id = guild.id
-            guild_owner = guild.owner
-            guild_owner_id = guild.owner_id
-            guild_member_count = guild.member_count
-            guild_creation_date = guild.created_at.strftime("%Y-%m-%d %H:%M:%S")
-            guild_region = str(guild.preferred_locale)  # If you want locale info
-
-            # Create the embed with the server information
-            embed = discord.Embed(
-                title="Joined a New Server!",
-                description=f"",
-                color=discord.Color.green()
+            app_logger.error(
+                "Could not log in. Invalid TOKEN. "
+                "Please replace 'TOKEN_HERE' with your actual bot token."
             )
-
-            embed.add_field(name="Server Name", value=guild_name, inline=True)
-            embed.add_field(name="Server ID", value=guild_id, inline=True)
-            embed.add_field(name="Owner", value=f"{guild_owner} (ID: {guild_owner_id})", inline=True)
-            embed.add_field(name="Member Count", value=guild_member_count, inline=True)
-            embed.add_field(name="Creation Date", value=guild_creation_date, inline=True)
-            embed.add_field(name="Region/Locale", value=guild_region, inline=True)
-
-            # Send the information to the notification channel
-            await notification_channel.send(embed=embed)
-
-    async def load_extension_with_args(self, cog_name, *args):
-        cog = __import__(cog_name, fromlist=['setup'])
-        await cog.setup(self, *args)
-
-    async def setup_cogs(self):
-        db_path = os.path.join(base_directory, 'temp_channels.db')
-        database = databasecontrol.Database(db_path)
-        database.connect()
-
-        # Load cogs/extensions
-        print("Unloading extensions")
-        try:
-            await self.unload_extension("cogs.utils")
-        except commands.ExtensionNotLoaded:
-            pass  # Ignore if not loaded
-        try:
-            await self.unload_extension("cogs.tempchannels.manage")
-        except commands.ExtensionNotLoaded:
-            pass
-        try:
-            await self.unload_extension("cogs.tempchannels.control")
-        except commands.ExtensionNotLoaded:
-            pass
-
-        # Now safely reload them
-        print("Loading extensions")
-        await self.load_extension("cogs.utils")
-        await self.load_extension_with_args("cogs.tempchannels.manage", database)
-        await self.load_extension_with_args("cogs.tempchannels.control", database)
-        print("Loaded extensions successfully!")
-
-    async def send_notification(self):
-        # Channel notification for syncing
-        if self.user.id == 853490879753617458:
-            notification_channel = self.get_channel(int(config["sync_channel_id"]))
-        else:
-            notification_channel = self.get_channel(int(config["testing_sync_channel_id"]))
-        if notification_channel is not None:
-            await notification_channel.send('Syncing...')
-            synced_commands = await self.tree.sync()
-            await notification_channel.send(f'Synced {len(synced_commands)} commands!')
-        print("Synced the commands")
+            sys.exit(1)
 
 
-# Create the bot instance
-bot = Bot()
+bot = Bot(client_token)
+bot.db = Database("database.db")
 
-# Run the bot
-bot.run(token)
+
+@bot.command(description="Sends the bot's latency.")
+async def ping(ctx):
+    await ctx.respond(f"Pong! Latency is {bot.latency}")
+
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if before.channel is None and after.channel is not None:
+        await user_join(member, before, after, bot=bot, logger=app_logger)
+    elif before.channel and after.channel and before.channel != after.channel:
+        await user_move(member, before, after, bot=bot, logger=app_logger)
+    elif before.channel and after.channel is None:
+        await user_leave(member, before, after, bot=bot, logger=app_logger)
+
+
+bot.run()
