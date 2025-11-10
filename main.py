@@ -127,11 +127,6 @@ bot = Bot(client_token)
 bot.db = Database("database.db")
 
 
-@bot.command(description="Sends the bot's latency.")
-async def ping(ctx):
-    await ctx.respond(f"Pong! Latency is {bot.latency}")
-
-
 @bot.event
 async def on_voice_state_update(member, before, after):
     await handle_voice.update(member, before, after, bot=bot, logger=logger)
@@ -143,7 +138,16 @@ async def on_command_error(ctx, error):
         await ctx.send("I require more permissions.")
 
 
+@bot.command(description="Sends the bot's latency.")
+async def ping(ctx):
+    await ctx.respond(f"Pong! Latency is {bot.latency}")
 
+
+@bot.command(description="Create a new Creator Channel")
+async def creator(ctx):
+    new_creator_channel = await ctx.guild.create_voice_channel("➕ Create Channel")
+    bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "temp channel", 0, 0)
+    await ctx.respond(f"Your creator is {new_creator_channel.mention}")
 
 
 bot.run()

@@ -34,6 +34,17 @@ class Database:
         """)
         self.connection.commit()
 
+    def add_creator_channel(self, guild_id, channel_id, child_name, user_limit, child_category_id):
+        """
+        Insert or replace a creator channel record into creator_channels.
+        """
+        self.cursor.execute("""
+            INSERT OR REPLACE INTO creator_channels
+            (guild_id, channel_id, child_name, user_limit, child_category_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (guild_id, channel_id, child_name, user_limit, child_category_id))
+        self.connection.commit()
+
     def is_temp_channel(self, channel_id):
         """
         Returns if a channel id is in the temp_channels tabel.

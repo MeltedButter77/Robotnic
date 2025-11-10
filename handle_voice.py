@@ -3,7 +3,7 @@ import asyncio
 
 async def update(member, before, after, bot, logger):
     temp_channel_ids = bot.db.get_temp_channel_ids()
-    creator_channel_ids = [1338710837946482718]  # bot.db.get_creator_channel_ids()
+    creator_channel_ids = bot.db.get_creator_channel_ids()
 
     # If a user joined a creator channel
     if after.channel:
