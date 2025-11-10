@@ -1,12 +1,60 @@
+import asyncio
 
 
-async def user_join(member, before, after, bot, logger):
-    logger.debug(f"{member} joined {after.channel}")
+async def update(member, before, after, bot, logger):
+    temp_channel_ids = bot.db.get_temp_channel_ids()
+    creator_channel_ids = [1338710837946482718]  # bot.db.get_creator_channel_ids()
+
+    # If a user joined a creator channel
+    if after.channel:
+        if after.channel.id in creator_channel_ids:
+            logger.debug(f"{member} joined creator channel {after.channel}")
+
+            new_temp_channel = await after.channel.guild.create_voice_channel("name")
+            bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, after.channel.id, member.id, 0, 1, False)
+
+            try:
+                await member.move_to(new_temp_channel)
+                logger.debug(f"Moved {member} to {new_temp_channel}")
+            except Exception as e:
+                logger.debug(f"Error creating voice channel, handled. {e}")
+                bot.db.remove_temp_channel(new_temp_channel.id)
+                await new_temp_channel.delete()
+
+    # If a user left a temp channel
+    if before.channel:
+        if before.channel.id in temp_channel_ids:
+            logger.debug(f"{member} left temp channel {before.channel}")
+
+            if len(before.channel.members) < 1:
+                logger.debug(f"Left temp channel is empty. Deleting...")
+
+                bot.db.remove_temp_channel(before.channel.id)
+                await before.channel.delete()
 
 
-async def user_move(member, before, after, bot, logger):
-    logger.debug(f"{member} moved from {before.channel} to {after.channel}")
+async def clear_empty_temp_channels(bot, logger):
+    await bot.wait_until_ready()  # Ensure the bot is fully connected
+    while not bot.is_closed():
+        try:
+            logger.debug("Clearing empty temp channels...")
 
+            temp_channel_ids = bot.db.get_temp_channel_ids()
 
-async def user_leave(member, before, after, bot, logger):
-    logger.debug(f"{member} left {before.channel}")
+            # Example: clean up empty temp channels
+            for channel_id in temp_channel_ids:
+                channel = bot.get_channel(channel_id)
+                if channel is None:
+                    logger.debug(f"Removing unfound/deleted temp channel from database")
+                    bot.db.remove_temp_channel(channel_id)
+                    continue
+
+                if bot.db.is_temp_channel(channel.id) and len(channel.members) == 0:
+                    logger.debug(f"Deleting empty temp channel {channel.name}")
+                    bot.db.remove_temp_channel(channel.id)
+                    await channel.delete()
+
+        except Exception as e:
+            logger.error(f"Error in periodic task: {e}")
+
+        await asyncio.sleep(120)  # 2 minutes (120 seconds)

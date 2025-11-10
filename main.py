@@ -4,7 +4,7 @@ import sys
 import discord
 import logging
 import dotenv
-from handle_voice import user_join, user_move, user_leave
+import handle_voice
 from database import Database
 
 # Directories
@@ -46,16 +46,16 @@ discord_logger = logging.getLogger('discord')
 discord_logger.setLevel(logging.DEBUG if discord_debug else logging.INFO)
 
 # Application logger
-app_logger = logging.getLogger('app')
-app_logger.setLevel(logging.DEBUG if app_debug else logging.INFO)
+logger = logging.getLogger('app')
+logger.setLevel(logging.DEBUG if app_debug else logging.INFO)
 
 # Attach handlers to the loggers
 discord_logger.addHandler(file_handler)
 discord_logger.addHandler(console_handler)
-app_logger.addHandler(file_handler)
-app_logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
-app_logger.info("App logger initialized")
+logger.info("App logger initialized")
 discord_logger.info("Discord logger initialized")
 
 # Check if .env exists, if not create a new one
@@ -63,13 +63,13 @@ placeholder = "TOKEN_HERE"
 if not os.path.exists(env_path):
     with open(env_path, 'w') as f:
         f.write(f"TOKEN={placeholder}\n")
-    app_logger.error(
+    logger.error(
         "No .env file found, one has been created. "
         "Please replace 'TOKEN_HERE' with your actual bot token."
     )
     sys.exit(1)
 else:
-    app_logger.debug(
+    logger.debug(
         "Valid .env file found. "
     )
 
@@ -78,13 +78,13 @@ dotenv.load_dotenv()
 client_token = os.getenv("TOKEN")
 # Handle placeholder or no token
 if client_token == placeholder or not client_token:
-    app_logger.error(
+    logger.error(
         "No valid TOKEN found in .env. "
         "Please replace 'TOKEN_HERE' with your actual bot token."
     )
     sys.exit(1)
 else:
-    app_logger.debug(
+    logger.debug(
         "Token found. "
     )
 
@@ -98,7 +98,7 @@ class Bot(discord.Bot):
         self.token = token
 
     async def on_ready(self):
-        app_logger.info(f'Logged in as {self.user}')
+        logger.info(f'Logged in as {self.user}')
 
     async def on_message(self, message):
         # Ignore self messages from bot
@@ -107,14 +107,16 @@ class Bot(discord.Bot):
 
         # Ping command
         if message.content.lower() == "!ping":
-            app_logger.debug(f"!ping triggered by {message.author}")
+            logger.debug(f"!ping triggered by {message.author}")
             await message.channel.send("Pong!")
 
     def run(self):
+        self.loop.create_task(handle_voice.clear_empty_temp_channels(self, logger))
+
         try:
             super().run(self.token)
         except Exception as e:
-            app_logger.error(
+            logger.error(
                 "Could not log in. Invalid TOKEN. "
                 "Please replace 'TOKEN_HERE' with your actual bot token."
             )
@@ -132,12 +134,16 @@ async def ping(ctx):
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    if before.channel is None and after.channel is not None:
-        await user_join(member, before, after, bot=bot, logger=app_logger)
-    elif before.channel and after.channel and before.channel != after.channel:
-        await user_move(member, before, after, bot=bot, logger=app_logger)
-    elif before.channel and after.channel is None:
-        await user_leave(member, before, after, bot=bot, logger=app_logger)
+    await handle_voice.update(member, before, after, bot=bot, logger=logger)
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, discord.Forbidden):
+        await ctx.send("I require more permissions.")
+
+
+
 
 
 bot.run()
