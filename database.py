@@ -116,11 +116,28 @@ class Database:
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 
-    def get_creator_channel_ids(self):
+    def get_creator_channel_ids(self, guild_id: int = None, child_category_id: int = None):
         """
-        Returns a list of all channel_id values from creator_channels.
+        Returns a list of channel_id values from creator_channels.
+        Optional filters:
+            guild_id: only return channels in this guild
+            child_category_id: only return channels in this category
         """
-        self.cursor.execute("SELECT channel_id FROM creator_channels")
+        query = "SELECT channel_id FROM creator_channels"
+        params = []
+
+        filters = []
+        if guild_id is not None:
+            filters.append("guild_id = ?")
+            params.append(guild_id)
+        if child_category_id is not None:
+            filters.append("child_category_id = ?")
+            params.append(child_category_id)
+
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+
+        self.cursor.execute(query, params)
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 
