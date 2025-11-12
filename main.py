@@ -1,9 +1,13 @@
+import asyncio
+import inspect
 import json
 import os
 import sys
 import discord
 import logging
 import dotenv
+
+import coroutine_tasks
 import handle_voice
 from database import Database
 
@@ -13,7 +17,7 @@ from database import Database
 # 3. Initialize Discord and App loggers
 # 4. Retrieve bot token
 # 5. Bot class, handles all bot methods
-# 6. Initialize Bot object and its database object as an attribute
+# 6. Initialize Bot object and set a database object as an attribute
 # 7. Commands as decorated functions, triggers relevant code
 # 8. Run bot
 
@@ -110,6 +114,7 @@ class Bot(discord.Bot):
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user}')
+        await coroutine_tasks.create_tasks(self, logger)
 
     async def on_voice_state_update(self, member, before, after):
         await handle_voice.update(member, before, after, bot=bot, logger=logger)
@@ -132,8 +137,6 @@ class Bot(discord.Bot):
             await ctx.send("Error, check logs.")
 
     def run(self):
-        self.loop.create_task(handle_voice.clear_empty_temp_channels(self, logger))
-
         try:
             super().run(self.token)
         except Exception as e:

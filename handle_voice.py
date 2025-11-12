@@ -36,30 +36,3 @@ async def update(member, before, after, bot, logger):
         temp_channel_ids = bot.db.get_temp_channel_ids()
         if before.channel.id in temp_channel_ids:  # Filter to temp channels
             await delete_on_leave(member, before, after, bot, logger)
-
-
-async def clear_empty_temp_channels(bot, logger):
-    await bot.wait_until_ready()  # Ensure the bot is fully connected
-    while not bot.is_closed():  # Run on a schedule
-        try:
-            logger.debug("Clearing empty temp channels...")
-
-            temp_channel_ids = bot.db.get_temp_channel_ids()
-
-            # Example: clean up empty temp channels
-            for channel_id in temp_channel_ids:
-                channel = bot.get_channel(channel_id)
-                if channel is None:
-                    logger.debug(f"Removing unfound/deleted temp channel from database")
-                    bot.db.remove_temp_channel(channel_id)
-                    continue
-
-                if bot.db.is_temp_channel(channel.id) and len(channel.members) == 0:
-                    logger.debug(f"Deleting empty temp channel {channel.name}")
-                    bot.db.remove_temp_channel(channel.id)
-                    await channel.delete()
-
-        except Exception as e:
-            logger.error(f"Error in periodic task: {e}")
-
-        await asyncio.sleep(120)  # 2 minutes (120 seconds)
