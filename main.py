@@ -1,5 +1,4 @@
-import asyncio
-import inspect
+from discord.ui import Modal, Select, View, select
 import json
 import os
 import sys
@@ -7,6 +6,7 @@ import discord
 import logging
 import dotenv
 import coroutine_tasks
+import creator_command
 import handle_voice
 from database import Database
 
@@ -105,12 +105,13 @@ else:
 
 # Subclassed discord.Bot allowing for methods to correspond directly with bot triggers
 class Bot(discord.Bot):
-    def __init__(self, token):
+    def __init__(self, token, database):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
         self.token = token
+        self.db = database
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user}')
@@ -147,8 +148,7 @@ class Bot(discord.Bot):
             sys.exit(1)
 
 
-bot = Bot(client_token)
-bot.db = Database("database.db")
+bot = Bot(client_token, Database("database.db"))
 
 
 @bot.command(description="Sends the bot's latency.")
@@ -158,9 +158,10 @@ async def ping(ctx):
 
 @bot.command(description="Create a new Creator Channel")
 async def creator(ctx):
-    new_creator_channel = await ctx.guild.create_voice_channel("➕ Create Channel")
-    bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s channel", 0, 0, 1)
-    await ctx.respond(f"Your creator is {new_creator_channel.mention}")
+
+    view = creator_command.CreateView(ctx=ctx, bot=bot, timeout=60)
+    message = await ctx.send_response(f"Press button below", view=view, ephemeral=True)
+    view.message = message
 
 
 bot.run()
