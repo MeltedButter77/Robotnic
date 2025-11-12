@@ -7,6 +7,17 @@ import dotenv
 import handle_voice
 from database import Database
 
+# Main.py Logic Structure
+# 1. Set Directories
+# 2. Retrieve Settings.json
+# 3. Initialize Discord and App loggers
+# 4. Retrieve bot token
+# 5. Bot class, handles all bot methods
+# 6. Initialize Bot object and its database object as an attribute
+# 7. Commands as decorated functions, triggers relevant code
+# 8. Run bot
+
+
 # Directories
 script_dir = os.path.dirname(os.path.abspath(__file__))
 log_path = os.path.join(script_dir, 'discord.log')
@@ -89,7 +100,7 @@ else:
     )
 
 
-# Subclassed discord.Client allowing for methods to correspond directly with bot triggers
+# Subclassed discord.Bot allowing for methods to correspond directly with bot triggers
 class Bot(discord.Bot):
     def __init__(self, token):
         intents = discord.Intents.default()
@@ -100,6 +111,9 @@ class Bot(discord.Bot):
     async def on_ready(self):
         logger.info(f'Logged in as {self.user}')
 
+    async def on_voice_state_update(self, member, before, after):
+        await handle_voice.update(member, before, after, bot=bot, logger=logger)
+
     async def on_message(self, message):
         # Ignore self messages from bot
         if message.author == self.user:
@@ -109,6 +123,13 @@ class Bot(discord.Bot):
         if message.content.lower() == "!ping":
             logger.debug(f"!ping triggered by {message.author}")
             await message.channel.send("Pong!")
+
+    async def on_application_command_error(self, ctx, exception):
+        if isinstance(exception.original, discord.Forbidden):
+            await ctx.send("I require more permissions.")
+        else:
+            logger.error(f"ERROR\nContext: {ctx}\nException: {exception}")
+            await ctx.send("Error, check logs.")
 
     def run(self):
         self.loop.create_task(handle_voice.clear_empty_temp_channels(self, logger))
@@ -125,17 +146,6 @@ class Bot(discord.Bot):
 
 bot = Bot(client_token)
 bot.db = Database("database.db")
-
-
-@bot.event
-async def on_voice_state_update(member, before, after):
-    await handle_voice.update(member, before, after, bot=bot, logger=logger)
-
-
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, discord.Forbidden):
-        await ctx.send("I require more permissions.")
 
 
 @bot.command(description="Sends the bot's latency.")
