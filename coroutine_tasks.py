@@ -56,7 +56,7 @@ async def clear_empty_temp_channels(bot, logger):
                     bot.db.remove_temp_channel(channel_id)
                     continue
 
-                if channel.id in temp_channel_ids and len(channel.members) == 0:
+                if len(channel.members) == 0:
                     logger.debug(f"Deleting empty temp channel \'{channel.name}\'")
                     bot.db.remove_temp_channel(channel.id)
                     await channel.delete()
