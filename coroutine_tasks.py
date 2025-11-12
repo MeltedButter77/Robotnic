@@ -1,5 +1,4 @@
 import inspect
-
 import discord
 import asyncio
 
@@ -48,13 +47,18 @@ async def clear_empty_temp_channels(bot, logger):
 
             temp_channel_ids = bot.db.get_temp_channel_ids()
 
-            # Example: clean up empty temp channels
+            # Clean up empty temp channels
             for channel_id in temp_channel_ids:
                 channel = bot.get_channel(channel_id)
                 if channel is None:
                     logger.debug(f"Removing unfound/deleted temp channel from database")
                     bot.db.remove_temp_channel(channel_id)
                     continue
+
+                # Having member intent should mean this is not needed
+                if not channel.guild.chunked:  # Only chunk if not already done
+                    logger.debug(f"Fetching all members for guild {channel.guild.name} to populate cache")
+                    await channel.guild.chunk()
 
                 if len(channel.members) == 0:
                     logger.debug(f"Deleting empty temp channel \'{channel.name}\'")

@@ -29,31 +29,64 @@ class Database:
                 channel_id INTEGER,
                 child_name TEXT,
                 user_limit INTEGER,
-                child_category_id INTEGER
+                child_category_id INTEGER,
+                child_overwrites INTEGER
             )
         """)
         self.connection.commit()
 
-    def add_creator_channel(self, guild_id, channel_id, child_name, user_limit, child_category_id):
+    def get_temp_channel_info(self, channel_id):
+        self.cursor.execute("""
+            SELECT guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed
+            FROM temp_channels
+            WHERE channel_id = ?
+        """, (channel_id,))
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
+
+        class CreatorInfo:
+            def __init__(self, guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed):
+                self.guild_id = guild_id
+                self.channel_id = channel_id
+                self.creator_id = creator_id
+                self.owner_id = owner_id
+                self.channel_state = channel_state
+                self.number = number
+                self.is_renamed = is_renamed
+        return CreatorInfo(*row)
+
+    def get_creator_channel_info(self, channel_id):
+        self.cursor.execute("""
+            SELECT guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites
+            FROM creator_channels
+            WHERE channel_id = ?
+        """, (channel_id,))
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
+
+        class CreatorInfo:
+            def __init__(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
+                self.guild_id = guild_id
+                self.channel_id = channel_id
+                self.child_name = child_name
+                self.user_limit = user_limit
+                self.child_category_id = child_category_id
+                self.child_overwrites = child_overwrites
+        return CreatorInfo(*row)
+
+    def add_creator_channel(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
         """
         Insert or replace a creator channel record into creator_channels.
         """
         self.cursor.execute("""
             INSERT OR REPLACE INTO creator_channels
-            (guild_id, channel_id, child_name, user_limit, child_category_id)
-            VALUES (?, ?, ?, ?, ?)
-        """, (guild_id, channel_id, child_name, user_limit, child_category_id))
+            (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites))
         self.connection.commit()
 
-    def is_temp_channel(self, channel_id):
-        """
-        Returns if a channel id is in the temp_channels tabel.
-        """
-        self.cursor.execute(
-            "SELECT 1 FROM temp_channels WHERE channel_id = ? LIMIT 1",
-            (channel_id,)
-        )
-        return self.cursor.fetchone() is not None
     def remove_temp_channel(self, channel_id):
         """
         Remove a temporary channel record by its channel_id.

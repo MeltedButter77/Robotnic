@@ -6,7 +6,6 @@ import sys
 import discord
 import logging
 import dotenv
-
 import coroutine_tasks
 import handle_voice
 from database import Database
@@ -109,6 +108,7 @@ class Bot(discord.Bot):
     def __init__(self, token):
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
         super().__init__(intents=intents)
         self.token = token
 
@@ -159,7 +159,7 @@ async def ping(ctx):
 @bot.command(description="Create a new Creator Channel")
 async def creator(ctx):
     new_creator_channel = await ctx.guild.create_voice_channel("➕ Create Channel")
-    bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "temp channel", 0, 0)
+    bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s channel", 0, 0, 1)
     await ctx.respond(f"Your creator is {new_creator_channel.mention}")
 
 
