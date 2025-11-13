@@ -130,8 +130,8 @@ class ListCreatorsEmbed(discord.Embed):
 
 
 class CreateView(View):
-    def __init__(self, ctx, bot, timeout):
-        super().__init__(timeout=timeout)
+    def __init__(self, ctx, bot):
+        super().__init__()
         self.bot = bot
         self.message = None
         self.author = ctx.author
@@ -204,3 +204,6 @@ class CreateView(View):
 
         await interaction.response.send_message(f"Created {new_creator_channel.mention}!", ephemeral=True)
         await self.update()
+
+    async def on_timeout(self):
+        await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")

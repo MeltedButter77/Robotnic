@@ -166,7 +166,7 @@ async def creator(ctx):
         creator_command.OptionsEmbed(guild=ctx.guild, bot=bot),
         creator_command.ListCreatorsEmbed(guild=ctx.guild, bot=bot),
     ]
-    view = creator_command.CreateView(ctx=ctx, bot=bot, timeout=60)
+    view = creator_command.CreateView(ctx=ctx, bot=bot)
     message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
     view.message = message
 
