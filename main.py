@@ -159,6 +159,9 @@ async def ping(ctx):
 
 @bot.command(description="Create a new Creator Channel")
 async def creator(ctx):
+    if not ctx.author.guild_permissions.administrator:
+        return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
+
     embed = creator_command.CreateEmbed(guild=ctx.guild, bot=bot)
     view = creator_command.CreateView(ctx=ctx, bot=bot, timeout=60)
     message = await ctx.send_response(f"{ctx.author.mention}", embed=embed, view=view)  # , ephemeral=True)
