@@ -56,6 +56,57 @@ class Database:
                 self.is_renamed = is_renamed
         return CreatorInfo(*row)
 
+    def edit_creator_channel(
+            self,
+            channel_id: int,
+            child_name: str = None,
+            user_limit: int = None,
+            child_category_id: int = None,
+            child_overwrites: int = None
+    ):
+        """
+        Update a creator channel's attributes in the database.
+        Only updates provided arguments.
+        """
+
+        # Build dynamic SET clause based on provided arguments
+        fields = []
+        values = []
+
+        if child_name is not None:
+            fields.append("child_name = ?")
+            values.append(child_name)
+
+        if user_limit is not None:
+            fields.append("user_limit = ?")
+            values.append(user_limit)
+
+        if child_category_id is not None:
+            fields.append("child_category_id = ?")
+            values.append(child_category_id)
+
+        if child_overwrites is not None:
+            fields.append("child_overwrites = ?")
+            values.append(child_overwrites)
+
+        if not fields:
+            # Nothing to update
+            return False
+
+        # Add the WHERE clause value
+        values.append(channel_id)
+
+        query = f"""
+            UPDATE creator_channels
+            SET {', '.join(fields)}
+            WHERE channel_id = ?
+        """
+
+        self.cursor.execute(query, tuple(values))
+        self.connection.commit()
+
+        return self.cursor.rowcount > 0  # Returns True if a row was updated
+
     def get_creator_channel_info(self, channel_id):
         self.cursor.execute("""
             SELECT guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites

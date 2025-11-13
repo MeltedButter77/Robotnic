@@ -3,9 +3,10 @@ from discord.ui import View, Select, Button, Modal, InputText
 
 
 class EditModal(Modal):
-    def __init__(self, view):
+    def __init__(self, view, creator_id):
         super().__init__(title="Example Modal")
         self.view = view
+        self.creator_id = creator_id
 
         # Add input fields
         self.add_item(InputText(label="Child Name", placeholder="Enter your name", required=False))
@@ -14,10 +15,66 @@ class EditModal(Modal):
         self.add_item(InputText(label="Child Permissions", placeholder="Enter integer 0-2 (1 recommended)", required=False))
 
     async def callback(self, interaction: discord.Interaction):
-        child_name = self.children[0].value
-        user_limit = self.children[1].value
-        child_category_id = self.children[2].value
-        child_overwrites = self.children[3].value
+        errors = []
+
+        # Validate Child name length
+        child_name = self.children[0].value.strip() or "{user}'s channel"
+        if len(child_name) > 100:
+            errors.append("Child name must be under 100 characters.")
+
+        # Validate user limit
+        user_limit_raw = self.children[1].value.strip()
+        if user_limit_raw == "":
+            user_limit = 0
+        else:
+            try:
+                user_limit = int(user_limit_raw)
+                if not (0 <= user_limit <= 99):
+                    errors.append("User limit must be an integer between `0` and `99` inclusive.")
+            except ValueError:
+                errors.append("User limit must be an integer.")
+
+        # Validate Child Category ID
+        category_raw = self.children[2].value.strip()
+        if category_raw == "":
+            child_category_id = 0
+        else:
+            try:
+                child_category_id = int(category_raw)
+                category = self.view.bot.get_channel(child_category_id)
+                if child_category_id < 0 or category is None:
+                    errors.append("Category ID must be `0` or a valid category ID (positive integer).")
+            except ValueError:
+                errors.append("Category ID must be an integer.")
+
+        # Validate Child Overwrite optiuons
+        overwrites_raw = self.children[3].value.strip()
+        if overwrites_raw == "":
+            child_overwrites = 1
+        else:
+            try:
+                child_overwrites = int(overwrites_raw)
+                if child_overwrites not in (0, 1, 2):
+                    errors.append("Permissions must be `0` (None), `1` (From Creator), or `2` (From Category).")
+            except ValueError:
+                errors.append("Permissions must be an integer `0` (None), `1` (From Creator), or `2` (From Category).")
+
+        # --- Handle Errors ---
+        if errors:
+            await interaction.response.send_message(
+                f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),
+                ephemeral=True
+            )
+            await self.view.update()
+            return
+
+        self.view.bot.db.edit_creator_channel(
+            channel_id=self.creator_id,
+            child_name=child_name,
+            user_limit=user_limit,
+            child_category_id=child_category_id,
+            child_overwrites=child_overwrites
+        )
 
         await interaction.response.send_message(
             f"Creator channel updated!",
@@ -64,7 +121,7 @@ class ListCreatorsEmbed(discord.Embed):
                 else:  # should be for case 0
                     overwrites = "0 = None. Permissions are cleared"
 
-                desc = f"Created Names:\n> `{child_name}`\nUser Limit:\n> `{user_limit}`\nCategory:\n> `{category}`\nPermission Inheritance:\n> `{overwrites}`"
+                desc = f"Created Channels' Names:\n> `{child_name}`\nUser Limit:\n> `{user_limit}`\nCategory:\n> `{category}`\nPermission Inheritance:\n> `{overwrites}`"
                 self.add_field(name=f"#{i+1}. {channel.mention}", value=desc, inline=True)
 
         # Handle case of no fields. Also prevents error of no embed content
@@ -134,7 +191,7 @@ class CreateView(View):
         if interaction.user.id != self.author.id:
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
-        modal = EditModal(self)
+        modal = EditModal(self, creator_id=interaction.data["values"][0])
         await interaction.response.send_modal(modal)
 
     # Button callback
