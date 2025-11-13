@@ -105,17 +105,18 @@ else:
 
 # Subclassed discord.Bot allowing for methods to correspond directly with bot triggers
 class Bot(discord.Bot):
-    def __init__(self, token, database):
+    def __init__(self, token, logger, database):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
         self.token = token
+        self.logger = logger
         self.db = database
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user}')
-        await coroutine_tasks.create_tasks(self, logger)
+        await coroutine_tasks.create_tasks(self)
 
     async def on_voice_state_update(self, member, before, after):
         await handle_voice.update(member, before, after, bot=bot, logger=logger)
@@ -134,8 +135,8 @@ class Bot(discord.Bot):
         if isinstance(exception.original, discord.Forbidden):
             await ctx.send("I require more permissions.")
         else:
-            logger.error(f"ERROR\nContext: {ctx}\nException: {exception}")
-            await ctx.send("Error, check logs.")
+            logger.error(f"ERROR in {__name__}\nContext: {ctx}\nException: {exception}")
+            await ctx.send("Error, check logs. Type: on_application_command_error")
 
     def run(self):
         try:
@@ -148,7 +149,7 @@ class Bot(discord.Bot):
             sys.exit(1)
 
 
-bot = Bot(client_token, Database("database.db"))
+bot = Bot(client_token, logger, Database("database.db"))
 
 
 @bot.command(description="Sends the bot's latency.")
@@ -158,9 +159,9 @@ async def ping(ctx):
 
 @bot.command(description="Create a new Creator Channel")
 async def creator(ctx):
-
+    embed = creator_command.CreateEmbed(guild=ctx.guild, bot=bot)
     view = creator_command.CreateView(ctx=ctx, bot=bot, timeout=60)
-    message = await ctx.send_response(f"Press button below", view=view, ephemeral=True)
+    message = await ctx.send_response(f"{ctx.author.mention}", embed=embed, view=view)  # , ephemeral=True)
     view.message = message
 
 

@@ -74,12 +74,16 @@ async def create_on_join(member, before, after, bot, logger):
     # Disable sync and reapply overwrites. this is because creating a channel in a
     # category with no overwrites will auto get overwrites of the category even if
     # {} is passed in overwrites
-    await new_temp_channel.edit(
-        name=channel_name,
-        user_limit=db_creator_channel_info.user_limit,
-        sync_permissions=False,
-        overwrites=overwrites
-    )
+    try:
+        await new_temp_channel.edit(
+            name=channel_name,
+            user_limit=db_creator_channel_info.user_limit,
+            sync_permissions=False,
+            overwrites=overwrites
+        )
+    except Exception as e:
+        logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
+        bot.db.remove_temp_channel(new_temp_channel.id)
 
 
 async def delete_on_leave(member, before, after, bot, logger):

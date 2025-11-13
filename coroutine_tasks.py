@@ -7,21 +7,21 @@ import asyncio
 # 2. Have 2 inputs; bot and logger.
 
 
-async def create_tasks(bot, logger):
+async def create_tasks(bot):
     tasks = []
     current_module = __import__(__name__)
 
     for name, func in inspect.getmembers(current_module, inspect.iscoroutinefunction):
         if name == "create_tasks":
             continue
-        logger.debug(f"Creating coroutine task {name}")
-        tasks.append(bot.loop.create_task(func(bot, logger)))
+        bot.logger.debug(f"Creating coroutine task {name}")
+        tasks.append(bot.loop.create_task(func(bot)))
 
-    logger.info(f"Created {len(tasks)} coroutine tasks")
+    bot.logger.info(f"Created {len(tasks)} coroutine tasks")
     return tasks
 
 
-async def update_presence(bot, logger):
+async def update_presence(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
         try:
@@ -31,41 +31,49 @@ async def update_presence(bot, logger):
                 member_count += guild.member_count
             status_text = f"Online in {server_count} servers. Serving {member_count} users."
             await bot.change_presence(activity=discord.Game(status_text))
-            logger.debug(f"Updated presence to \'{status_text}\'")
+            bot.logger.debug(f"Updated presence to \'{status_text}\'")
 
         except Exception as e:
-            logger.error(f"Error in {__name__} task: {e}")
+            bot.logger.error(f"Error in {__name__} task: {e}")
 
         await asyncio.sleep(3600)  # 1 hour (3600 seconds)
 
 
-async def clear_empty_temp_channels(bot, logger):
+async def clear_empty_temp_channels(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
         try:
-            logger.debug("Clearing empty temp channels...")
+            bot.logger.debug("Clearing empty temp channels...")
 
             temp_channel_ids = bot.db.get_temp_channel_ids()
+            creator_channel_ids = bot.db.get_creator_channel_ids()
+
+            # Cleanup deleted creator channels
+            for channel_id in creator_channel_ids:
+                channel = bot.get_channel(channel_id)
+                if channel is None:
+                    bot.logger.debug(f"Removing unfound/deleted creator channel from database")
+                    bot.db.remove_temp_channel(channel_id)
 
             # Clean up empty temp channels
             for channel_id in temp_channel_ids:
                 channel = bot.get_channel(channel_id)
                 if channel is None:
-                    logger.debug(f"Removing unfound/deleted temp channel from database")
+                    bot.logger.debug(f"Removing unfound/deleted temp channel from database")
                     bot.db.remove_temp_channel(channel_id)
                     continue
 
                 # Having member intent should mean this is not needed
                 if not channel.guild.chunked:  # Only chunk if not already done
-                    logger.debug(f"Fetching all members for guild {channel.guild.name} to populate cache")
+                    bot.logger.debug(f"Fetching all members for guild {channel.guild.name} to populate cache")
                     await channel.guild.chunk()
 
                 if len(channel.members) == 0:
-                    logger.debug(f"Deleting empty temp channel \'{channel.name}\'")
+                    bot.logger.debug(f"Deleting empty temp channel \'{channel.name}\'")
                     bot.db.remove_temp_channel(channel.id)
                     await channel.delete()
 
         except Exception as e:
-            logger.error(f"Error in {__name__} task: {e}")
+            bot.logger.error(f"Error in {__name__} task: {e}")
 
         await asyncio.sleep(120)  # 2 minutes (120 seconds)
