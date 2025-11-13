@@ -97,6 +97,16 @@ class Database:
         )
         self.connection.commit()
 
+    def remove_creator_channel(self, channel_id):
+        """
+        Remove a temporary channel record by its channel_id.
+        """
+        self.cursor.execute(
+            "DELETE FROM creator_channels WHERE channel_id = ?",
+            (channel_id,)
+        )
+        self.connection.commit()
+
     def add_temp_channel(self, guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed):
         """
         Insert or replace a temporary channel record.

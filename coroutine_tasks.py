@@ -53,7 +53,7 @@ async def clear_empty_temp_channels(bot):
                 channel = bot.get_channel(channel_id)
                 if channel is None:
                     bot.logger.debug(f"Removing unfound/deleted creator channel from database")
-                    bot.db.remove_temp_channel(channel_id)
+                    bot.db.remove_creator_channel(channel_id)
 
             # Clean up empty temp channels
             for channel_id in temp_channel_ids:
