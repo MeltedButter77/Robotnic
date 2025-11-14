@@ -111,12 +111,14 @@ class Bot(discord.Bot):
     def __init__(self, token, logger, database):
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.presences = True
         intents.members = True
         super().__init__(intents=intents)
         self.token = token
         self.logger = logger
         self.db = database
         self.notification_channel = None
+        self.renamer = handle_voice.TempChannelRenamer(self)
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user}')
@@ -138,6 +140,22 @@ class Bot(discord.Bot):
         if message.content.lower() == "!ping":
             logger.debug(f"!ping triggered by {message.author}")
             await message.channel.send("Pong!")
+
+    async def on_presence_update(self, before: discord.Member, after: discord.Member):
+        # Updates temp channel name if child_name_template has activities and a connected user changes activities
+        if after.voice and after.voice.channel:
+            temp_channel = after.voice.channel
+
+            db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
+            if not db_temp_channel_info:
+                return
+            db_creator_channel_info = bot.db.get_creator_channel_info(db_temp_channel_info.creator_id)
+            if db_temp_channel_info is not None and "{activity}" in str(db_creator_channel_info.child_name):
+                new_channel_name = handle_voice.create_temp_channel_name(bot, temp_channel)
+                # If the current name is different to the correct name, rename it.
+                if temp_channel.name != new_channel_name:
+                    bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name} due to activity change")
+                    await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
 
     async def on_application_command_error(self, ctx, exception):
         if isinstance(exception.original, discord.Forbidden):
