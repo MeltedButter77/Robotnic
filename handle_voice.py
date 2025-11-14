@@ -85,6 +85,9 @@ async def create_on_join(member, before, after, bot, logger):
         logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
         bot.db.remove_temp_channel(new_temp_channel.id)
 
+    if bot.notification_channel:
+        await bot.notification_channel.send(f"Temp Channel was made in `{member.guild.name}` by `{member}`")
+
 
 async def delete_on_leave(member, before, after, bot, logger):
     logger.debug(f"{member} left temp channel {before.channel}")
@@ -94,6 +97,9 @@ async def delete_on_leave(member, before, after, bot, logger):
 
         bot.db.remove_temp_channel(before.channel.id)
         await before.channel.delete()
+
+    if bot.notification_channel:
+        await bot.notification_channel.send(f"Temp Channel was removed in `{member.guild.name}` by `{member}`")
 
 
 async def update(member, before, after, bot, logger):

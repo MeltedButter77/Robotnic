@@ -32,6 +32,9 @@ default_settings = {
     "logging": {
         "discord": False,
         "app": False
+    },
+    "notifications": {
+        "channel_id": None
     }
 }
 
@@ -113,10 +116,15 @@ class Bot(discord.Bot):
         self.token = token
         self.logger = logger
         self.db = database
+        self.notification_channel = None
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user}')
         await coroutine_tasks.create_tasks(self)
+
+        self.notification_channel = self.get_channel(settings["notifications"].get("channel_id", None))
+        if self.notification_channel:
+            await self.notification_channel.send(f"Bot {self.user.mention} started.")
 
     async def on_voice_state_update(self, member, before, after):
         await handle_voice.update(member, before, after, bot=bot, logger=logger)

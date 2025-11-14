@@ -205,5 +205,8 @@ class CreateView(View):
         await interaction.response.send_message(f"Created {new_creator_channel.mention}!", ephemeral=True)
         await self.update()
 
+        if self.bot.notification_channel:
+            await self.bot.notification_channel.send(f"Creator Channel was made in `{interaction.guild.name}` by `{interaction.user}`")
+
     async def on_timeout(self):
         await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")
