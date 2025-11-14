@@ -193,6 +193,7 @@ class CreateView(View):
 
         modal = EditModal(self, creator_id=interaction.data["values"][0])
         await interaction.response.send_modal(modal)
+        await self.update()  # If modal isnt submitted the dropdown wont be already used/selected
 
     # Button callback
     async def button_callback(self, interaction: discord.Interaction):
