@@ -14,7 +14,7 @@ class TempChannelRenamer:
         self.bot = bot
         self.pending = {}  # channel_id -> RenameState
         self.last_edit_time = {}  # channel_id → timestamp
-        self.min_interval = 15.0  # seconds between edits
+        self.min_interval = 30.0  # seconds between edits
 
     class RenameState:
         def __init__(self, new_name):

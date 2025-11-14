@@ -44,7 +44,7 @@ async def update_temp_channel_names(bot):
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
 
-        await asyncio.sleep(9999999)  # 1 minute (60 seconds)
+        await asyncio.sleep(60)  # 1 minute (60 seconds)
 
 
 async def update_presence(bot):
