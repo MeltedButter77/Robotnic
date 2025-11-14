@@ -204,8 +204,6 @@ async def create_on_join(member, before, after, bot, logger):
 
 
 async def delete_on_leave(member, before, after, bot, logger):
-    logger.debug(f"{member} left temp channel {before.channel}")
-
     if len(before.channel.members) < 1:
         logger.debug(f"Left temp channel is empty. Deleting...")
 
