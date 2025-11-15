@@ -11,7 +11,6 @@ class Database:
         self._ensure_tables()
 
     def _ensure_tables(self):
-        # Example table
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS temp_channels (
                 guild_id INTEGER,
@@ -174,6 +173,17 @@ class Database:
         Returns a list of all channel_id values from temp_channels.
         """
         self.cursor.execute("SELECT channel_id FROM temp_channels")
+        rows = self.cursor.fetchall()
+        return [row[0] for row in rows]
+
+    def get_temp_channel_counts(self, creator_id):
+        """
+        Returns a list of all number values from all temp channels of a creator.
+        """
+        self.cursor.execute(
+            "SELECT number FROM temp_channels WHERE creator_id = ?",
+            (creator_id,)
+        )
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 

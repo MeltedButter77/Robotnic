@@ -155,6 +155,10 @@ def create_temp_channel_name(bot, temp_channel, db_temp_channel_info=None, db_cr
 
         new_channel_name = new_channel_name.replace("{activity}", activity_text)
 
+    if "{count}" in str(new_channel_name):
+        count = db_temp_channel_info.number
+        new_channel_name = new_channel_name.replace("{count}", str(count))
+
     # Max char is 100, using 98 just in case
     if len(str(new_channel_name)) > 95:
         new_channel_name = new_channel_name[:95] + "..."
@@ -213,7 +217,14 @@ async def create_on_join(member, before, after, bot):
         overwrites=overwrites,
         position=creator_channel.position,
     )
-    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, 1, False)
+
+    counts = bot.db.get_temp_channel_counts(creator_channel.id)
+    if len(counts) < 1:
+        count = 1
+    else:
+        count = max(counts) + 1
+
+    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count, False)
 
     try:
         await member.move_to(new_temp_channel)
