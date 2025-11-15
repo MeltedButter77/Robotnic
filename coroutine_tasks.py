@@ -1,3 +1,4 @@
+import time
 import discord
 import asyncio
 from cogs import voice_logic
@@ -23,6 +24,7 @@ async def create_tasks(bot):
 async def update_temp_channel_names(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
+        start = time.perf_counter()
         bot.logger.debug("Updating temp channel names...")
         try:
             # Update numbers of temp channels
@@ -46,7 +48,11 @@ async def update_temp_channel_names(bot):
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
 
-        await asyncio.sleep(20)  # 1 minute (60 seconds)
+        end = time.perf_counter()
+        duration = end - start
+        bot.logger.debug(f"Temp channel name update completed in {duration:.4f} seconds")
+
+        await asyncio.sleep(60)  # 1 minute (60 seconds)
 
 
 async def update_presence(bot):
