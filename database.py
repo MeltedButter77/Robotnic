@@ -126,6 +126,74 @@ class Database:
                 self.child_overwrites = child_overwrites
         return CreatorInfo(*row)
 
+    def fix_temp_channel_numbers(self):
+        """
+        Ensures all temp channels for each creator have correct ascending numbering:
+        - If a creator has only one temp channel → number becomes 1.
+        - If multiple → sorted and renumbered as 1..N.
+        """
+
+        # Fetch all temp channels
+        self.cursor.execute("""
+                            SELECT channel_id, creator_id, number
+                            FROM temp_channels
+                            """)
+        rows = self.cursor.fetchall()
+
+        if not rows:
+            return
+
+        # Group channels by creator
+        creators = {}  # creator_id -> list of (channel_id, number)
+        for channel_id, creator_id, number in rows:
+            creators.setdefault(creator_id, []).append((channel_id, number))
+
+        for creator_id, channels in creators.items():
+
+            # Fetch creator channel info
+            creator_info = self.get_creator_channel_info(creator_id)
+            if creator_info is None:
+                # Creator definition missing — cannot process
+                continue
+
+            # Skip creators whose child_name does not use {count}
+            if "{count}" not in str(creator_info.child_name):
+                continue
+
+            # case 1; one temp channel
+            if len(channels) == 1:
+                channel_id, old_num = channels[0]
+                if old_num != 1:  # Only update if incorrect
+                    self.cursor.execute("""
+                                        UPDATE temp_channels
+                                        SET number = 1
+                                        WHERE channel_id = ?
+                                        """, (channel_id,))
+                continue
+
+            # case 2; multiple channels
+            # Sort by current number
+            channels_sorted = sorted(channels, key=lambda x: x[1])
+
+            # Expected perfect sequence
+            expected_numbers = list(range(1, len(channels_sorted) + 1))
+            current_numbers = [num for _, num in channels_sorted]
+
+            # Skip if already perfect
+            if current_numbers == expected_numbers:
+                continue
+
+            # Renumber all channels
+            for (channel_id, _old_num), new_num in zip(channels_sorted, expected_numbers):
+                self.cursor.execute("""
+                                    UPDATE temp_channels
+                                    SET number = ?
+                                    WHERE channel_id = ?
+                                    """, (new_num, channel_id))
+
+            # Save all updates
+            self.connection.commit()
+
     def add_creator_channel(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
         """
         Insert or replace a creator channel record into creator_channels.

@@ -24,10 +24,12 @@ async def update_temp_channel_names(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
         bot.logger.debug("Updating temp channel names...")
-
         try:
-            temp_channel_ids = bot.db.get_temp_channel_ids()
+            # Update numbers of temp channels
+            bot.db.fix_temp_channel_numbers()
 
+            # Calculate what each temp channel's name should be and schedule and update if they don't match
+            temp_channel_ids = bot.db.get_temp_channel_ids()
             for temp_channel_id in temp_channel_ids:
                 temp_channel = bot.get_channel(temp_channel_id)
                 db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
@@ -44,7 +46,7 @@ async def update_temp_channel_names(bot):
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
 
-        await asyncio.sleep(60)  # 1 minute (60 seconds)
+        await asyncio.sleep(20)  # 1 minute (60 seconds)
 
 
 async def update_presence(bot):
