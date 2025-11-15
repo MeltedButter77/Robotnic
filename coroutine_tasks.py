@@ -63,7 +63,7 @@ async def update_presence(bot):
             member_count = 0
             for guild in bot.guilds:
                 member_count += guild.member_count
-            status_text = f"Online in {server_count} servers. Serving {member_count} users."
+            status_text = f"Online in {server_count} servers | {member_count} users."
             await bot.change_presence(activity=discord.Game(status_text))
             bot.logger.debug(f"Updated presence to \'{status_text}\'")
 
