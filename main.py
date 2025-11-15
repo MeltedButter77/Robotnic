@@ -7,11 +7,13 @@ import dotenv
 import coroutine_tasks
 from cogs import creator_menu, voice_logic
 from database import Database
+from pathlib import Path
+from datetime import datetime
 
 # Main.py Logic Structure
 # 1. Set Directories
 # 2. Retrieve Settings.json
-# 3. Initialize Discord and App loggers
+# 3. Initialize Discord and Bot loggers
 # 4. Retrieve bot token
 # 5. Bot class, handles all bot methods
 # 6. Initialize Bot object and set a database object as an attribute
@@ -19,16 +21,17 @@ from database import Database
 
 
 # Directories
-script_dir = os.path.dirname(os.path.abspath(__file__))
-log_path = os.path.join(script_dir, 'discord.log')
-env_path = os.path.join(script_dir, '.env')
-settings_path = os.path.join(script_dir, "settings.json")
+script_dir = Path(__file__).parent
+log_path = script_dir / "logs"
+log_path.mkdir(exist_ok=True)
+env_path = script_dir / ".env"
+settings_path = script_dir / "settings.json"
 
 # Default settings
 default_settings = {
     "logging": {
         "discord": False,
-        "app": False
+        "bot": False
     },
     "notifications": {
         "channel_id": None
@@ -45,10 +48,12 @@ if not os.path.exists(settings_path):
 with open(settings_path, "r") as f:
     settings = json.load(f)
 discord_debug = settings["logging"].get("discord", False)
-app_debug = settings["logging"].get("app", False)
+bot_debug = settings["logging"].get("bot", False)
 
 # File handler (shared)
-file_handler = logging.FileHandler(filename=log_path, encoding='utf-8', mode='w')
+log_name = datetime.now()
+log_name = log_name.strftime("%Y-%m-%d-%H-%M-%S")
+file_handler = logging.FileHandler(filename=log_path / f"{log_name}.log", encoding='utf-8', mode='w')
 file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 
 # Console handler (shared)
@@ -59,9 +64,9 @@ console_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s: %(messag
 discord_logger = logging.getLogger('discord')
 discord_logger.setLevel(logging.DEBUG if discord_debug else logging.INFO)
 
-# Application logger
-logger = logging.getLogger('app')
-logger.setLevel(logging.DEBUG if app_debug else logging.INFO)
+# Bot logger
+logger = logging.getLogger('bot')
+logger.setLevel(logging.DEBUG if bot_debug else logging.INFO)
 
 # Attach handlers to the loggers
 discord_logger.addHandler(file_handler)
@@ -69,7 +74,7 @@ discord_logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-logger.info("App logger initialized")
+logger.info("Bot logger initialized")
 discord_logger.info("Discord logger initialized")
 
 # Check if .env exists, if not create a new one
