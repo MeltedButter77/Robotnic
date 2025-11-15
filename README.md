@@ -59,7 +59,7 @@ pip install -r requirements.txt
 python main.py
 ```
 4. Configure the Bot. Replace `TOKEN_HERE` with your bot's token. (You need to make a Discord Bot through Discord's Developer Portal)
-```bash
+```
 TOKEN=TOKEN_HERE
 ```
 5. Run the Bot

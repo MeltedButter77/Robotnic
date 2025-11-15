@@ -1,5 +1,29 @@
 import discord
 from discord.ui import View, Select, Button, Modal, InputText
+from discord.ext import commands
+
+
+class CreatorMenuCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @discord.slash_command()
+    @discord.default_permissions(administrator=True)
+    async def creator(self, ctx):
+        if not ctx.author.guild_permissions.administrator:
+            return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
+
+        embeds = [
+            OptionsEmbed(guild=ctx.guild, bot=self.bot),
+            ListCreatorsEmbed(guild=ctx.guild, bot=self.bot),
+        ]
+        view = CreateView(ctx=ctx, bot=self.bot)
+        message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
+        view.message = message
+
+
+def setup(bot):
+    bot.add_cog(CreatorMenuCog(bot))
 
 
 class EditModal(Modal):
@@ -65,7 +89,7 @@ class EditModal(Modal):
                 f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),
                 ephemeral=True
             )
-            await self.view.update()
+            await self.view.handle_voice_state_update()
             return
 
         self.view.bot.db.edit_creator_channel(
@@ -80,7 +104,7 @@ class EditModal(Modal):
             f"Creator channel updated!",
             ephemeral=True
         )
-        await self.view.update()
+        await self.view.handle_voice_state_update()
 
 
 class OptionsEmbed(discord.Embed):

@@ -1,6 +1,6 @@
 import discord
 import asyncio
-import handle_voice
+from cogs import voice_logic
 
 
 # All functions within this file will:
@@ -16,7 +16,7 @@ async def create_tasks(bot):
     for func in functions:
         tasks.append(bot.loop.create_task(func(bot)))
 
-    bot.logger.info(f"Created {len(tasks)} coroutine tasks")
+    bot.logger.debug(f"Created {len(tasks)} coroutine tasks")
     return tasks
 
 
@@ -32,7 +32,7 @@ async def update_temp_channel_names(bot):
                 temp_channel = bot.get_channel(temp_channel_id)
                 db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
                 if temp_channel and db_temp_channel_info.creator_id:
-                    new_channel_name = handle_voice.create_temp_channel_name(bot, temp_channel, db_temp_channel_info=db_temp_channel_info)
+                    new_channel_name = voice_logic.create_temp_channel_name(bot, temp_channel, db_temp_channel_info=db_temp_channel_info)
 
                     # If the current name is different to the correct name, rename it.
                     if temp_channel.name != new_channel_name:
