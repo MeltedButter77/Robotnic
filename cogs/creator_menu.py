@@ -7,7 +7,7 @@ class CreatorMenuCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @discord.slash_command()
+    @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
     @discord.default_permissions(administrator=True)
     async def creator(self, ctx):
         if not ctx.author.guild_permissions.administrator:
@@ -33,10 +33,10 @@ class EditModal(Modal):
         self.creator_id = creator_id
 
         # Add input fields
-        self.add_item(InputText(label="Child Name", placeholder="Enter your name", required=False))
+        self.add_item(InputText(label="Name of Temporary Channel", placeholder="Can include {user}, {activity} or {count}", required=False))
         self.add_item(InputText(label="User Limit", placeholder="Enter integer 0-99 (0 = Unlimited)", required=False))
-        self.add_item(InputText(label="Child Category ID", placeholder="Enter 0 or category ID", required=False))
-        self.add_item(InputText(label="Child Permissions", placeholder="Enter integer 0-2 (1 recommended)", required=False))
+        self.add_item(InputText(label="Temp Channel Category ID", placeholder="Enter 0 (for same as creator) or category ID", required=False))
+        self.add_item(InputText(label="Temp Channel Permissions", placeholder="Enter integer 0-2 (differences explained in /creator menu)", required=False))
 
     async def callback(self, interaction: discord.Interaction):
         errors = []
@@ -89,7 +89,7 @@ class EditModal(Modal):
                 f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),
                 ephemeral=True
             )
-            await self.view.handle_voice_state_update()
+            await self.view.update()
             return
 
         self.view.bot.db.edit_creator_channel(
@@ -104,7 +104,7 @@ class EditModal(Modal):
             f"Creator channel updated!",
             ephemeral=True
         )
-        await self.view.handle_voice_state_update()
+        await self.view.update()
 
 
 class OptionsEmbed(discord.Embed):
@@ -123,6 +123,7 @@ class OptionsEmbed(discord.Embed):
 class ListCreatorsEmbed(discord.Embed):
     def __init__(self, guild, bot):
         super().__init__(
+            title="Selected Options for each Creator Channel",
             color=discord.Color.green()
         )
 
@@ -227,7 +228,15 @@ class CreateView(View):
         new_creator_channel = await interaction.guild.create_voice_channel("➕ Create Channel")
         self.bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s channel", 0, 0, 1)
 
-        await interaction.response.send_message(f"Created {new_creator_channel.mention}!", ephemeral=True)
+        embeds = [discord.Embed(), discord.Embed()]
+        embeds[0].title = f"Created {new_creator_channel.mention}! Join to see how it works."
+        embeds[1].color = discord.Color.green()
+        embeds[1].title = "For Best Results:"
+        embeds[1].add_field(name="", value="**Move the channel** to your desired location and **change its name** if you wish to distinguish it from other Creator Channels.", inline=True)
+        embeds[1].add_field(name="", value="If you wish to edit the **name scheme** of temp channels, please **select a Creator Channel to edit above**", inline=True)
+        embeds[1].add_field(name="", value="Any temp channels it creates, by default, will **inherit the same permissions as the creator**.", inline=True)
+
+        await interaction.response.send_message(f"", embeds=embeds, ephemeral=True)
         await self.update()
 
         if self.bot.notification_channel:

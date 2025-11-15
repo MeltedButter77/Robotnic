@@ -15,8 +15,7 @@ from database import Database
 # 4. Retrieve bot token
 # 5. Bot class, handles all bot methods
 # 6. Initialize Bot object and set a database object as an attribute
-# 7. Commands as decorated functions, triggers relevant code
-# 8. Run bot
+# 7. Run bot
 
 
 # Directories
@@ -121,13 +120,17 @@ class Bot(discord.Bot):
     async def on_ready(self):
         self.logger.info(f'Logged in as {self.user}')
         await coroutine_tasks.create_tasks(self)
+        await bot.sync_commands()
+        self.logger.info(f'Commands synced')
 
         self.notification_channel = self.get_channel(settings["notifications"].get("channel_id", None))
         if self.notification_channel:
             await self.notification_channel.send(f"Bot {self.user.mention} started.")
 
     async def close(self):
-        self.logger.info(f'Logged in as {self.user}')
+        self.logger.info(f'Logging out {self.user}')
+        if self.notification_channel:
+            await self.notification_channel.send(f"Bot {self.user.mention} stopping.")
         await super().close()
 
     async def on_application_command_error(self, ctx, exception):
@@ -136,11 +139,6 @@ class Bot(discord.Bot):
         else:
             self.logger.error(f"ERROR in {__name__}\nContext: {ctx}\nException: {exception}")
             await ctx.send("Error, check logs. Type: on_application_command_error")
-
-    @discord.slash_command(description="Sends the bot's latency.")
-    @discord.default_permissions(administrator=True)
-    async def ping(self, ctx):
-        await ctx.respond(f"Pong! Latency is {self.latency}")
 
     def run(self):
         try:
