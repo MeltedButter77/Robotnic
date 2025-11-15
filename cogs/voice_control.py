@@ -218,8 +218,7 @@ class ButtonsView(View):
         await self.control_message.edit(view=self, embeds=embeds)
 
     async def on_timeout(self):
-        print("timed out")
-        await self.update()
+        self.bot.logger.error("timed out", self.control_message)
 
     # --- Callbacks ---
     async def lock_button_callback(self, interaction: discord.Interaction):
