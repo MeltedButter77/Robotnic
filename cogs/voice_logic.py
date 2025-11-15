@@ -2,6 +2,7 @@ import asyncio
 import time
 import discord
 from discord.ext import commands
+from cogs.voice_control import ButtonsView
 
 
 class VoiceLogicCog(commands.Cog):
@@ -235,6 +236,11 @@ async def create_on_join(member, before, after, bot):
             sync_permissions=False,
             overwrites=overwrites
         )
+
+        # Send control message in channel chat
+        await asyncio.sleep(2)  # Allows time for channel to be edited to correct name
+        view = ButtonsView(bot, new_temp_channel)
+        await view.send_initial_message()
     except Exception as e:
         bot.logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
         bot.db.remove_temp_channel(new_temp_channel.id)
