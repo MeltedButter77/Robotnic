@@ -14,7 +14,7 @@ class CreatorMenuCog(commands.Cog):
             return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
 
         embeds = [
-            OptionsEmbed(guild=ctx.guild, bot=self.bot),
+            OptionsEmbed(),
             ListCreatorsEmbed(guild=ctx.guild, bot=self.bot),
         ]
         view = CreateView(ctx=ctx, bot=self.bot)
@@ -41,15 +41,17 @@ class EditModal(Modal):
     async def callback(self, interaction: discord.Interaction):
         errors = []
 
+        db_creator_channel_info = self.view.bot.db.get_creator_channel_info(self.creator_id)
+
         # Validate Child name length
-        child_name = self.children[0].value.strip() or "{user}'s channel"
+        child_name = self.children[0].value.strip() or db_creator_channel_info.child_name
         if len(child_name) > 100:
             errors.append("Child name must be under 100 characters.")
 
         # Validate user limit
         user_limit_raw = self.children[1].value.strip()
         if user_limit_raw == "":
-            user_limit = 0
+            user_limit = db_creator_channel_info.user_limit
         else:
             try:
                 user_limit = int(user_limit_raw)
@@ -61,7 +63,7 @@ class EditModal(Modal):
         # Validate Child Category ID
         category_raw = self.children[2].value.strip()
         if category_raw == "":
-            child_category_id = 0
+            child_category_id = db_creator_channel_info.child_category_id
         else:
             try:
                 child_category_id = int(category_raw)
@@ -74,7 +76,7 @@ class EditModal(Modal):
         # Validate Child Overwrite optiuons
         overwrites_raw = self.children[3].value.strip()
         if overwrites_raw == "":
-            child_overwrites = 1
+            child_overwrites = db_creator_channel_info.child_overwrites
         else:
             try:
                 child_overwrites = int(overwrites_raw)
@@ -108,7 +110,7 @@ class EditModal(Modal):
 
 
 class OptionsEmbed(discord.Embed):
-    def __init__(self, guild, bot):
+    def __init__(self):
         super().__init__(
             title="Creator Channels' Options",
             color=discord.Color.blue()
