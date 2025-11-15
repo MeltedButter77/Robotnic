@@ -210,6 +210,7 @@ async def create_on_join(member, before, after, bot):
         name="⌛",
         category=category,
         overwrites=overwrites,
+        position=creator_channel.position,
     )
     bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, 1, False)
 
