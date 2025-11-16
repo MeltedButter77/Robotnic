@@ -219,7 +219,16 @@ class ButtonsView(View):
 
     async def on_timeout(self):
         self.bot.logger.error(f"Control message timed out in {self.control_message.channel.name}")
-        self.stop()
+        self.clear_items()
+        self.add_item(
+            discord.ui.Button(
+                label="This control message has expired",
+                style=discord.ButtonStyle.secondary,
+                disabled=True
+            )
+        )
+        # Edit the message to show the new view
+        await self.control_message.edit(view=self)
 
     # --- Callbacks ---
     async def lock_button_callback(self, interaction: discord.Interaction):
