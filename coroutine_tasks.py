@@ -85,6 +85,7 @@ async def update_presence(bot):
         await asyncio.sleep(3600)  # 1 hour (3600 seconds)
 
 
+# Known bug that if this triggers while a user is creating a temp channel and is yet to be moved, this may delete the channel and cause an error
 async def clear_empty_temp_channels(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
