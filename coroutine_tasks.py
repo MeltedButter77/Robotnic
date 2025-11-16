@@ -23,39 +23,40 @@ async def create_tasks(bot):
 
 
 async def update_temp_channel_names(bot):
-    await bot.wait_until_ready()  # Ensure the bot is fully connected
-    while not bot.is_closed():  # Run on a schedule
+    await bot.wait_until_ready()
+    while not bot.is_closed():
         start = time.perf_counter()
         bot.logger.debug("Updating temp channel names...")
         try:
-            # Update numbers of temp channels
             bot.db.fix_temp_channel_numbers()
-
-            # Calculate what each temp channel's name should be and schedule and update if they don't match
             temp_channel_ids = bot.db.get_temp_channel_ids()
-            for temp_channel_id in temp_channel_ids:
+
+            async def update_channel(temp_channel_id):
                 temp_channel = bot.get_channel(temp_channel_id)
-                db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
-                if temp_channel and db_temp_channel_info.creator_id:
-                    new_channel_name = voice_logic.create_temp_channel_name(bot, temp_channel, db_temp_channel_info=db_temp_channel_info)
+                db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
+                if not temp_channel or not db_temp_channel_info.creator_id:
+                    return
 
-                    # If the current name is different to the correct name, rename it.
-                    if temp_channel.name != new_channel_name:
-                        # Use bot.renamer to reduce rate-limit problems
-                        bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
-                        # await temp_channel.edit(name=new_channel_name)
-                        await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
+                # Rename channel if needed
+                new_channel_name = voice_logic.create_temp_channel_name(
+                    bot, temp_channel, db_temp_channel_info=db_temp_channel_info
+                )
+                if temp_channel.name != new_channel_name:
+                    bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
+                    await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
 
-                    # Searches first 10 messages for first send by the bot. This will almost always be the creator
-                    async for control_message in temp_channel.history(limit=10, oldest_first=True):
-                        if control_message.author.id == bot.user.id:
-                            new_info_embed = ChannelInfoEmbed(bot, temp_channel)
-                            # By comparing embed names it waits for the new embed to reflect the updated name before editing the msg
-                            if control_message.embeds[0].title != new_info_embed.title:
-                                bot.logger.debug(f"Updating Control Message")
-                                embeds = [new_info_embed, control_message.embeds[1]]
-                                await control_message.edit(embeds=embeds)
-                            break
+                # Update control message
+                async for control_message in temp_channel.history(limit=3, oldest_first=True):
+                    if control_message.author.id == bot.user.id:
+                        new_info_embed = ChannelInfoEmbed(bot, temp_channel)
+                        if control_message.embeds[0].title != new_info_embed.title:
+                            bot.logger.debug(f"Updating Control Message")
+                            embeds = [new_info_embed, control_message.embeds[1]]
+                            await control_message.edit(embeds=embeds)
+                        break
+
+            # Run all updates concurrently
+            await asyncio.gather(*(update_channel(channel_id) for channel_id in temp_channel_ids))
 
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
@@ -64,7 +65,7 @@ async def update_temp_channel_names(bot):
         duration = end - start
         bot.logger.debug(f"Temp channel name update completed in {duration:.4f} seconds")
 
-        await asyncio.sleep(60)  # 1 minute (60 seconds)
+        await asyncio.sleep(60)
 
 
 async def update_presence(bot):
