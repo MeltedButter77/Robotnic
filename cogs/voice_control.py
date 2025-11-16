@@ -219,6 +219,7 @@ class ButtonsView(View):
 
     async def on_timeout(self):
         self.bot.logger.error(f"Control message timed out in {self.control_message.channel.name}")
+        self.stop()
 
     # --- Callbacks ---
     async def lock_button_callback(self, interaction: discord.Interaction):
