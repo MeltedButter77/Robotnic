@@ -2,6 +2,7 @@ import time
 import discord
 import asyncio
 from cogs import voice_logic
+from cogs.voice_control import ChannelInfoEmbed
 
 
 # All functions within this file will:
@@ -44,6 +45,17 @@ async def update_temp_channel_names(bot):
                         bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
                         # await temp_channel.edit(name=new_channel_name)
                         await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
+
+                    # Searches first 10 messages for first send by the bot. This will almost always be the creator
+                    async for control_message in temp_channel.history(limit=10, oldest_first=True):
+                        if control_message.author.id == bot.user.id:
+                            new_info_embed = ChannelInfoEmbed(bot, temp_channel)
+                            # By comparing embed names it waits for the new embed to reflect the updated name before editing the msg
+                            if control_message.embeds[0].title != new_info_embed.title:
+                                bot.logger.debug(f"Updating Control Message")
+                                embeds = [new_info_embed, control_message.embeds[1]]
+                                await control_message.edit(embeds=embeds)
+                            break
 
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
