@@ -282,7 +282,7 @@ async def create_on_join(member, before, after, bot):
         bot.db.remove_temp_channel(new_temp_channel.id)
 
     if bot.notification_channel:
-        await bot.notification_channel.send(f"Temp Channel was made in `{member.guild.name}` by `{member}`")
+        await bot.notification_channel.send(f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
 
 
 async def delete_on_leave(member, before, after, bot):
@@ -293,4 +293,4 @@ async def delete_on_leave(member, before, after, bot):
         await before.channel.delete()
 
         if bot.notification_channel:
-            await bot.notification_channel.send(f"Temp Channel was removed in `{member.guild.name}` by `{member}`")
+            await bot.notification_channel.send(f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
