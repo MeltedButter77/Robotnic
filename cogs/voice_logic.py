@@ -89,6 +89,7 @@ class TempChannelRenamer:
 
         # Enforce cooldown of min_interval. Prevents discord hard rate-limits of 10-15 minutes
         if now - last < self.min_interval:
+            self.bot.logger.debug("Waiting to rename channel to enforce minimum interval.")
             wait_time = self.min_interval - (now - last)
             await asyncio.sleep(wait_time)
 
