@@ -218,7 +218,7 @@ class ButtonsView(View):
         await self.control_message.edit(view=self, embeds=embeds)
 
     async def on_timeout(self):
-        self.bot.logger.error("timed out", self.control_message)
+        self.bot.logger.error(f"Control message timed out in {self.control_message.channel.name}")
 
     # --- Callbacks ---
     async def lock_button_callback(self, interaction: discord.Interaction):
@@ -237,7 +237,37 @@ class ButtonsView(View):
         await interaction.response.send_message("You selected `kick`", ephemeral=True, delete_after=20)
 
     async def clear_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("You selected `clear`", ephemeral=True, delete_after=20)
+        await interaction.response.defer(ephemeral=True)
+        if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
+            self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
+            return await interaction.followup.send(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
+
+        excluded_message_ids = []
+        if interaction.message:
+            excluded_message_ids.append(interaction.message.id)
+        if self.followup_view and self.followup_view.control_message:
+            excluded_message_ids.append(self.followup_view.control_message.id)
+
+        # Fetch messages from the channel
+        messages_to_delete = []
+        async for message in interaction.channel.history(limit=None):
+            if message.id not in excluded_message_ids:
+                messages_to_delete.append(message)
+
+        # Bulk delete the filtered messages
+        if messages_to_delete:
+            try:
+                await interaction.channel.delete_messages(messages_to_delete)
+            except Exception as e:
+                await interaction.followup.send(f"Failed, {e}", ephemeral=True, delete_after=15)
+
+        embed = discord.Embed(
+            title="Messages Deleted",
+            description=f"Deleted `{len(messages_to_delete)}` messages.",
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="This message will disappear in 15 seconds.")
+        await interaction.followup.send(embed=embed, ephemeral=True, delete_after=15)
 
     async def delete_button_callback(self, interaction: discord.Interaction):
         await interaction.response.send_message("You selected `delete`", ephemeral=True, delete_after=20)
