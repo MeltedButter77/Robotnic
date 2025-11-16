@@ -45,9 +45,9 @@ class ControlIconsEmbed(discord.Embed):
         self.add_field(name="🧽 Clear", value="", inline=True)
         self.add_field(name="🔨 Ban", value="", inline=True)
         self.add_field(name="🗑️ Delete", value="", inline=True)
-        self.add_field(name="🌐 Public", value="", inline=True)
-        self.add_field(name="🙈 Hide", value="", inline=True)
-        self.add_field(name="🔒 Lock", value="", inline=True)
+        # self.add_field(name="🌐 Public", value="", inline=True)
+        # self.add_field(name="🙈 Hide", value="", inline=True)
+        # self.add_field(name="🔒 Lock", value="", inline=True)
 
 
 class ChannelInfoEmbed(discord.Embed):
@@ -78,19 +78,19 @@ class ChannelInfoEmbed(discord.Embed):
         # if region is None:
         #     region = "🌍 Auto"
 
-        channel_state_id = temp_channel_info.channel_state
-        if channel_state_id == ChannelState.PUBLIC.value:
-            channel_state = "🌐 Public"
-        elif channel_state_id == ChannelState.LOCKED.value:
-            channel_state = "🔒 Locked"
-        elif channel_state_id == ChannelState.HIDDEN.value:
-            channel_state = "🙈 Hidden"
-        else:
-            channel_state = "None"
+        # channel_state_id = temp_channel_info.channel_state
+        # if channel_state_id == ChannelState.PUBLIC.value:
+        #     channel_state = "🌐 Public"
+        # elif channel_state_id == ChannelState.LOCKED.value:
+        #     channel_state = "🔒 Locked"
+        # elif channel_state_id == ChannelState.HIDDEN.value:
+        #     channel_state = "🙈 Hidden"
+        # else:
+        #     channel_state = "None"
 
         # self.add_field(name="Limit", value=f"{limit}", inline=True)
         # self.add_field(name="Region", value=f"{region}", inline=True)
-        self.add_field(name="Access", value=f"{channel_state}", inline=True)
+        # self.add_field(name="Access", value=f"{channel_state}", inline=True)
 
 
 class ButtonsView(View):
@@ -197,11 +197,11 @@ class ButtonsView(View):
         give_button.callback = self.give_button_callback
         ban_button.callback = self.ban_button_callback
 
-        self.add_item(public_button)
-        self.add_item(hide_button)
-        self.add_item(lock_button)
-
-        self.add_item(banner_button)
+        # self.add_item(public_button)
+        # self.add_item(hide_button)
+        # self.add_item(lock_button)
+        #
+        # self.add_item(banner_button)
 
         self.add_item(modify_button)
         self.add_item(kick_button)
