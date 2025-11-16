@@ -109,7 +109,7 @@ else:
 
 
 # Subclassed discord.Bot allowing for methods to correspond directly with bot triggers
-class Bot(discord.Bot):
+class Bot(discord.AutoShardedBot):
     def __init__(self, token, logger, database):
         intents = discord.Intents.default()
         intents.message_content = True
