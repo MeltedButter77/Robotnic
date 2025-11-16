@@ -211,12 +211,35 @@ async def create_on_join(member, before, after, bot):
     else:
         overwrites = {}
 
-    new_temp_channel = await creator_channel.guild.create_voice_channel(
-        name="⌛",
-        category=category,
-        overwrites=overwrites,
-        position=creator_channel.position,
+    overwrites[bot.user] = discord.PermissionOverwrite(
+        view_channel=True,
+        manage_channels=True,
+        send_messages=True,
+        manage_messages=True,
+        read_message_history=True,
+        connect=True,
+        move_members=True,
     )
+    overwrites[member] = discord.PermissionOverwrite(
+        view_channel=True,
+        send_messages=True,
+        read_message_history=True,
+        connect=True,
+    )
+
+    try:
+        new_temp_channel = await creator_channel.guild.create_voice_channel(
+            name="⌛",
+            category=category,
+            overwrites=overwrites,
+            position=creator_channel.position,
+        )
+    except discord.Forbidden as e:
+        bot.logger.debug(f"Permission error creating temp channel, handled by sending a message notifying of lack of perms. {e}")
+        embed = discord.Embed()
+        embed.add_field(name="Required", value="`view_channel`, `manage_channels`, `send_messages`, `manage_messages`, `read_message_history`, `connect`, `move_members`")
+        await creator_channel.send(f"Sorry {member.mention}, I require the following permissions. Make sure they are not overwritten by the category (In this case `{category.name}`).", embed=embed, delete_after=300)
+        return
 
     counts = bot.db.get_temp_channel_counts(creator_channel.id)
     if len(counts) < 1:
@@ -230,9 +253,10 @@ async def create_on_join(member, before, after, bot):
         await member.move_to(new_temp_channel)
         bot.logger.debug(f"Moved {member} to {new_temp_channel}")
     except Exception as e:
-        bot.logger.debug(f"Error creating voice channel, handled. {e}")
+        bot.logger.debug(f"Error creating voice channel, most likely a quick join and leave. Handled. {e}")
         bot.db.remove_temp_channel(new_temp_channel.id)
         await new_temp_channel.delete()
+        return
 
     channel_name = create_temp_channel_name(bot, new_temp_channel, db_creator_channel_info=db_creator_channel_info)
 
