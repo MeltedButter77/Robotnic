@@ -70,13 +70,13 @@ class ChannelInfoEmbed(discord.Embed):
             owner = "None, available to claim"
         self.add_field(name="Owner", value=f"{owner}", inline=True)
 
-        limit = temp_channel.user_limit
-        if limit == 0:
-            limit = "♾️ Unlimited"
+        # limit = temp_channel.user_limit
+        # if limit == 0:
+        #     limit = "♾️ Unlimited"
 
-        region = temp_channel.rtc_region
-        if region is None:
-            region = "🌍 Auto"
+        # region = temp_channel.rtc_region
+        # if region is None:
+        #     region = "🌍 Auto"
 
         channel_state_id = temp_channel_info.channel_state
         if channel_state_id == ChannelState.PUBLIC.value:
@@ -88,14 +88,14 @@ class ChannelInfoEmbed(discord.Embed):
         else:
             channel_state = "None"
 
-        self.add_field(name="Limit", value=f"{limit}", inline=True)
-        self.add_field(name="Region", value=f"{region}", inline=True)
+        # self.add_field(name="Limit", value=f"{limit}", inline=True)
+        # self.add_field(name="Region", value=f"{region}", inline=True)
         self.add_field(name="Access", value=f"{channel_state}", inline=True)
 
 
 class ButtonsView(View):
     def __init__(self, bot, temp_channel):
-        super().__init__()
+        super().__init__(timeout=None)
         self.bot = bot
         self.temp_channel = temp_channel
         self.control_message = None
@@ -228,7 +228,10 @@ class ButtonsView(View):
             )
         )
         # Edit the message to show the new view
-        await self.control_message.edit(view=self)
+        try:
+            await self.control_message.edit(view=self)
+        except Exception as e:
+            self.bot.logger.debug(f"Failed to update control message after timeout. Handled. {e}")
 
     # --- Callbacks ---
     async def lock_button_callback(self, interaction: discord.Interaction):
