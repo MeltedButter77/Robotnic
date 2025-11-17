@@ -31,7 +31,7 @@ class ChannelState(Enum):
     HIDDEN = 2
 
 
-async def update_info_embed(bot, channel, title=None):
+async def update_info_embed(bot, channel, title=None, user_limit=None):
     control_message = None
     async for message in channel.history(limit=1, oldest_first=True):
         control_message = message
@@ -39,7 +39,7 @@ async def update_info_embed(bot, channel, title=None):
         print("Failed to find control message")
         return
     embeds = control_message.embeds
-    embeds[0] = ChannelInfoEmbed(bot, channel, title)
+    embeds[0] = ChannelInfoEmbed(bot, channel, title, user_limit)
     await control_message.edit(embeds=embeds)
 
 
@@ -53,7 +53,7 @@ class ControlIconsEmbed(discord.Embed):
 
         self.add_field(name="🏷️ Rename", value="", inline=True)
         self.add_field(name="🚧 Limit", value="", inline=True)
-        self.add_field(name="🎁 Give/Claim", value="", inline=True)
+        self.add_field(name="🎁 Give", value="", inline=True)
         self.add_field(name="🧽 Clear", value="", inline=True)
         self.add_field(name="🔨 Ban", value="", inline=True)
         self.add_field(name="🗑️ Delete", value="", inline=True)
@@ -63,7 +63,7 @@ class ControlIconsEmbed(discord.Embed):
 
 
 class ChannelInfoEmbed(discord.Embed):
-    def __init__(self, bot, temp_channel, title=None):
+    def __init__(self, bot, temp_channel, title=None, user_limit=None):
         super().__init__(
             color=discord.Color.blue()
         )
@@ -85,10 +85,11 @@ class ChannelInfoEmbed(discord.Embed):
             owner = "None, available to claim"
         self.add_field(name="Owner", value=f"{owner}", inline=True)
 
-        limit = temp_channel.user_limit
-        if limit == 0:
-            limit = "♾️ Unlimited"
-        self.add_field(name="Limit", value=f"{limit}", inline=True)
+        if not user_limit:
+            user_limit = temp_channel.user_limit
+        if user_limit == 0:
+            user_limit = "♾️ Unlimited"
+        self.add_field(name="User Limit", value=f"{user_limit}", inline=True)
 
         # region = temp_channel.rtc_region
         # if region is None:
@@ -209,7 +210,7 @@ class ButtonsView(View):
             hide_button.label = "Hide"
             public_button.label = "Public"
             name_button.label = "Rename"
-            limit_button.label = "User Limit"
+            limit_button.label = "Edit Limit"
             clear_button.label = "Clear Msgs"
             delete_button.label = "Delete"
             give_button.label = "Give/Claim"
@@ -274,7 +275,7 @@ class ButtonsView(View):
     async def name_button_callback(self, interaction: discord.Interaction):
         if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
             self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
-            return await interaction.followup.send(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
 
         modal = ChangeNameModal(self.bot, interaction.channel)
         await interaction.response.send_modal(modal)
@@ -282,7 +283,7 @@ class ButtonsView(View):
     async def limit_button_callback(self, interaction: discord.Interaction):
         if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
             self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
-            return await interaction.followup.send(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
 
         modal = UserLimitModal(self.bot, interaction.channel)
         await interaction.response.send_modal(modal)
@@ -454,7 +455,7 @@ class UserLimitModal(discord.ui.Modal):
         # Update the channel user limit
         if user_limit != self.channel.user_limit:
             await self.channel.edit(user_limit=int(user_limit))
-        # await update_info_embed(self.bot, self.channel)  # Only required if limit is displayed in info embed. hardcoded on/off atm
+        await update_info_embed(self.bot, self.channel, user_limit=user_limit)  # Only required if limit is displayed in info embed. hardcoded on/off atm
 
         embed = discord.Embed(
             title="Changes Saved",
