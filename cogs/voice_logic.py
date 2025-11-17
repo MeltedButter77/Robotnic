@@ -87,8 +87,8 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
                 new_info_embed = cogs.voice_control.ChannelInfoEmbed(bot, temp_channel, title=new_channel_name)
                 if control_message.embeds[0].title != new_info_embed.title:
                     bot.logger.debug(f"Updating Control Message")
-                    embeds = [new_info_embed, control_message.embeds[1]]
-                    await control_message.edit(embeds=embeds)
+                    control_message.embeds[0] = new_info_embed
+                    await control_message.edit(embeds=control_message.embeds)
                 break
 
     # Run all updates concurrently

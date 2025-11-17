@@ -4,8 +4,6 @@ import sys
 import discord
 import logging
 import dotenv
-import coroutine_tasks
-from cogs import creator_menu, voice_logic
 from database import Database
 from pathlib import Path
 from datetime import datetime
@@ -35,6 +33,10 @@ default_settings = {
     },
     "notifications": {
         "channel_id": None
+    },
+    "control_message": {
+        "labeled_icons": True,
+        "icon_description_embed": False
     }
 }
 
@@ -49,6 +51,10 @@ with open(settings_path, "r") as f:
     settings = json.load(f)
 discord_debug = settings["logging"].get("discord", False)
 bot_debug = settings["logging"].get("bot", False)
+
+# Import after settings have been made
+import coroutine_tasks
+from cogs import creator_menu, voice_logic
 
 # File handler (shared)
 log_name = datetime.now()

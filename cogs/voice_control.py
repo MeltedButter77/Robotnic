@@ -1,9 +1,19 @@
 import asyncio
-
+import json
 from discord.ui import View, Select, Button, Modal, InputText
 from enum import Enum
 import discord
 from discord.ext import commands
+from pathlib import Path
+
+script_dir = Path(__file__).parent
+settings_path = script_dir / "../settings.json"
+
+# Load settings
+with open(settings_path, "r") as f:
+    settings = json.load(f)
+labeled_icons = settings["control_message"].get("labeled_icons", True)
+icon_description_embed = settings["control_message"].get("icon_description_embed", False)
 
 
 class VoiceControlCog(commands.Cog):
@@ -41,7 +51,7 @@ class ControlIconsEmbed(discord.Embed):
             color=0x00ff00
         )
 
-        self.add_field(name="🏷️ Name", value="", inline=True)
+        self.add_field(name="🏷️ Rename", value="", inline=True)
         self.add_field(name="🚧 Limit", value="", inline=True)
         self.add_field(name="🎁 Give/Claim", value="", inline=True)
         self.add_field(name="🧽 Clear", value="", inline=True)
@@ -75,13 +85,15 @@ class ChannelInfoEmbed(discord.Embed):
             owner = "None, available to claim"
         self.add_field(name="Owner", value=f"{owner}", inline=True)
 
-        # limit = temp_channel.user_limit
-        # if limit == 0:
-        #     limit = "♾️ Unlimited"
+        limit = temp_channel.user_limit
+        if limit == 0:
+            limit = "♾️ Unlimited"
+        self.add_field(name="Limit", value=f"{limit}", inline=True)
 
         # region = temp_channel.rtc_region
         # if region is None:
         #     region = "🌍 Auto"
+        # self.add_field(name="Region", value=f"{region}", inline=True)
 
         # channel_state_id = temp_channel_info.channel_state
         # if channel_state_id == ChannelState.PUBLIC.value:
@@ -92,9 +104,6 @@ class ChannelInfoEmbed(discord.Embed):
         #     channel_state = "🙈 Hidden"
         # else:
         #     channel_state = "None"
-
-        # self.add_field(name="Limit", value=f"{limit}", inline=True)
-        # self.add_field(name="Region", value=f"{region}", inline=True)
         # self.add_field(name="Access", value=f"{channel_state}", inline=True)
 
 
@@ -109,7 +118,10 @@ class ButtonsView(View):
         self.create_items()
 
     async def send_initial_message(self):
-        embeds = [ChannelInfoEmbed(self.bot, self.temp_channel), ControlIconsEmbed()]
+        embeds = [ChannelInfoEmbed(self.bot, self.temp_channel)]
+        if icon_description_embed:
+            embed = ControlIconsEmbed()
+            embeds.append(embed)
         self.control_message = await self.temp_channel.send("", embeds=embeds, view=self)
 
     def create_items(self):
@@ -191,6 +203,17 @@ class ButtonsView(View):
             row=2,
             disabled=True
         )
+
+        if labeled_icons:
+            lock_button.label = "Lock"
+            hide_button.label = "Hide"
+            public_button.label = "Public"
+            name_button.label = "Rename"
+            limit_button.label = "User Limit"
+            clear_button.label = "Clear Msgs"
+            delete_button.label = "Delete"
+            give_button.label = "Give/Claim"
+            ban_button.label = "Ban User"
 
         lock_button.callback = self.lock_button_callback
         hide_button.callback = self.hide_button_callback
