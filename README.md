@@ -1,12 +1,12 @@
 # Dr Robotnic - Dynamic Voice Channels Discord Bot
 
-Dr. Robotnic is an open-source Discord bot designed to intelligently 
+Robotnic is an open-source Discord bot designed to intelligently 
 manage dynamic voice channels. It automatically creates, manages, and 
 deletes temporary voice channels based on user activity. This keeps your 
 server clean and organized.
 
 You can invite the public instance to your own server for free using
-👉 [invite Dr. Robotnic](https://discord.com/oauth2/authorize?client_id=853490879753617458)
+👉 [invite Robotnic](https://discord.com/oauth2/authorize?client_id=853490879753617458)
 or join the support server to test it out 👉 [Support Server](https://discord.gg/rcAREJyMV5).
 
 ## Features
@@ -44,7 +44,7 @@ Requirements.txt
 - `/creator` -> Create a new Creator Channel and open the configuration menu.
 
 ## Self-Hosting Setup
-If you’d like to run your own instance of Dr. Robotnic:
+If you’d like to run your own instance of Robotnic:
 1. Clone the Repository
 ```bash
 git clone https://github.com/MeltedButter77/Robotnic.git

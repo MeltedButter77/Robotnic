@@ -1,8 +1,7 @@
 import time
 import discord
 import asyncio
-from cogs import voice_logic
-from cogs.voice_control import ChannelInfoEmbed
+import cogs.voice_logic
 
 
 # All functions within this file will:
@@ -28,35 +27,8 @@ async def update_temp_channel_names(bot):
         start = time.perf_counter()
         bot.logger.debug("Updating temp channel names...")
         try:
-            bot.db.fix_temp_channel_numbers()
             temp_channel_ids = bot.db.get_temp_channel_ids()
-
-            async def update_channel(temp_channel_id):
-                temp_channel = bot.get_channel(temp_channel_id)
-                db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
-                if not temp_channel or not db_temp_channel_info.creator_id:
-                    return
-
-                # Rename channel if needed
-                new_channel_name = voice_logic.create_temp_channel_name(
-                    bot, temp_channel, db_temp_channel_info=db_temp_channel_info
-                )
-                if temp_channel.name != new_channel_name:
-                    bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
-                    await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
-
-                # Update control message
-                async for control_message in temp_channel.history(limit=3, oldest_first=True):
-                    if control_message.author.id == bot.user.id:
-                        new_info_embed = ChannelInfoEmbed(bot, temp_channel)
-                        if control_message.embeds[0].title != new_info_embed.title:
-                            bot.logger.debug(f"Updating Control Message")
-                            embeds = [new_info_embed, control_message.embeds[1]]
-                            await control_message.edit(embeds=embeds)
-                        break
-
-            # Run all updates concurrently
-            await asyncio.gather(*(update_channel(channel_id) for channel_id in temp_channel_ids))
+            await cogs.voice_logic.update_channel_name_and_control_msg(bot, temp_channel_ids)
 
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
