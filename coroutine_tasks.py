@@ -23,8 +23,8 @@ async def create_tasks(bot):
 
 
 async def update_temp_channel_names(bot):
-    await bot.wait_until_ready()
-    while not bot.is_closed():
+    await bot.wait_until_ready()  # Ensure the bot is fully connected
+    while not bot.is_closed():  # Run on a schedule
         start = time.perf_counter()
         bot.logger.debug("Updating temp channel names...")
         try:
@@ -65,7 +65,7 @@ async def update_temp_channel_names(bot):
         duration = end - start
         bot.logger.debug(f"Temp channel name update completed in {duration:.4f} seconds")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(60)  # 1 minute (60 seconds)
 
 
 async def update_presence(bot):
