@@ -29,6 +29,11 @@ class VoiceLogicCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
+        # Filter out normal updates when not switching channels
+        if before is not None and after is not None:
+            if before.channel == after.channel:
+                return
+
         if after.channel:  # If a user joined a channel
             creator_channel_ids = self.bot.db.get_creator_channel_ids()
             if after.channel.id in creator_channel_ids:  # Filter to creator channels
@@ -39,6 +44,10 @@ class VoiceLogicCog(commands.Cog):
             if before.channel.id in temp_channel_ids:  # Filter to temp channels
                 await delete_on_leave(member, before, after, self.bot)
 
+                # Update channel names of all temp channels
+                temp_channel_ids = self.bot.db.get_temp_channel_ids()
+                await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, temp_channel_ids)
+
 
 def setup(bot):
     bot.add_cog(VoiceLogicCog(bot))
@@ -47,8 +56,10 @@ def setup(bot):
 # Updates channel name to match its creator's template.
 # Updates Control message's info embed to reflect true data
 async def update_channel_name_and_control_msg(bot, temp_channel_ids):
-    bot.db.fix_temp_channel_numbers()
+    bot.logger.debug("Updating temp channel names...")
+    start = time.perf_counter()
 
+    bot.db.fix_temp_channel_numbers()
     async def update(temp_channel_id):
         temp_channel = bot.get_channel(temp_channel_id)
         db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
@@ -57,15 +68,18 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
         if not temp_channel or not db_temp_channel_info.creator_id:
             return
 
-        # Rename channel if not renamed and new name is different
         new_channel_name = None
         if not db_temp_channel_info.is_renamed:
             new_channel_name = create_temp_channel_name(
                 bot, temp_channel, db_temp_channel_info=db_temp_channel_info
             )
+
+            # Rename channel if not renamed and new name is different
             if temp_channel.name != new_channel_name:
-                bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
-                await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
+                if len(temp_channel.members) > 0:  # If empty it is going to be deleted, ignore
+                    bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
+                    await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
+                    # await temp_channel.edit(name=new_channel_name)
 
         # Update control message
         async for control_message in temp_channel.history(limit=3, oldest_first=True):
@@ -79,7 +93,14 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
 
     # Run all updates concurrently
     tasks = (update(channel_id) for channel_id in temp_channel_ids)
-    await asyncio.gather(*tasks)
+    try:
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        bot.logger.debug(f"Unhandled error in func update_channel_name_and_control_msg {e}")
+
+    end = time.perf_counter()
+    duration = end - start
+    bot.logger.debug(f"Temp channel name update completed in {duration:.4f} seconds")
 
 
 # - This class fixes rate-limit renaming problems
@@ -331,6 +352,7 @@ async def delete_on_leave(member, before, after, bot):
         try:
             await before.channel.delete()
             bot.db.remove_temp_channel(before.channel.id)
+            bot.logger.debug(f"Deleted {before.channel.name}")
         except discord.NotFound as e:
             bot.db.remove_temp_channel(before.channel.id)
             bot.logger.debug(f"Channel not found removing entry in db, handled. {e}")

@@ -24,20 +24,12 @@ async def create_tasks(bot):
 async def update_temp_channel_names(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
-        start = time.perf_counter()
-        bot.logger.debug("Updating temp channel names...")
         try:
             temp_channel_ids = bot.db.get_temp_channel_ids()
             await cogs.voice_logic.update_channel_name_and_control_msg(bot, temp_channel_ids)
-
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
-
-        end = time.perf_counter()
-        duration = end - start
-        bot.logger.debug(f"Temp channel name update completed in {duration:.4f} seconds")
-
-        await asyncio.sleep(60)  # 1 minute (60 seconds)
+        await asyncio.sleep(90)  # 1.5 minutes (90 seconds)
 
 
 async def update_presence(bot):
@@ -96,4 +88,4 @@ async def clear_empty_temp_channels(bot):
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
 
-        await asyncio.sleep(120)  # 2 minutes (120 seconds)
+        await asyncio.sleep(300)  # 5 minutes (300 seconds)
