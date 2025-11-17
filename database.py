@@ -34,6 +34,10 @@ class Database:
         """)
         self.connection.commit()
 
+    def set_owner_id(self, channel_id, owner_id):
+        self.cursor.execute("""UPDATE temp_channels SET owner_id = ? WHERE channel_id = ?""", (owner_id, channel_id,))
+        self.connection.commit()
+
     def set_temp_channel_is_renamed(self, channel_id, bool):
         if bool:
             is_renamed = 1

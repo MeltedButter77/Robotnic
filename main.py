@@ -36,7 +36,9 @@ default_settings = {
     },
     "control_message": {
         "labeled_icons": True,
-        "icon_description_embed": False
+        "icon_description_embed": False,
+        "use_dropdown_instead_of_buttons": True,
+        "state_changeable": False
     }
 }
 

@@ -12,8 +12,10 @@ settings_path = script_dir / "../settings.json"
 # Load settings
 with open(settings_path, "r") as f:
     settings = json.load(f)
-labeled_icons = settings["control_message"].get("labeled_icons", True)
-icon_description_embed = settings["control_message"].get("icon_description_embed", False)
+button_labels = settings["control_message"].get("button_labels", True)
+buttons_description_embed = settings["control_message"].get("buttons_description_embed", False)
+use_dropdown_instead_of_buttons = settings["control_message"].get("use_dropdown_instead_of_buttons", True)
+state_changeable = settings["control_message"].get("state_changeable", False)
 
 
 class VoiceControlCog(commands.Cog):
@@ -57,9 +59,10 @@ class ControlIconsEmbed(discord.Embed):
         self.add_field(name="🧽 Clear", value="", inline=True)
         self.add_field(name="🔨 Ban", value="", inline=True)
         self.add_field(name="🗑️ Delete", value="", inline=True)
-        # self.add_field(name="🌐 Public", value="", inline=True)
-        # self.add_field(name="🙈 Hide", value="", inline=True)
-        # self.add_field(name="🔒 Lock", value="", inline=True)
+        if state_changeable:
+            self.add_field(name="🌐 Public", value="", inline=True)
+            self.add_field(name="🙈 Hide", value="", inline=True)
+            self.add_field(name="🔒 Lock", value="", inline=True)
 
 
 class ChannelInfoEmbed(discord.Embed):
@@ -96,16 +99,31 @@ class ChannelInfoEmbed(discord.Embed):
         #     region = "🌍 Auto"
         # self.add_field(name="Region", value=f"{region}", inline=True)
 
-        # channel_state_id = temp_channel_info.channel_state
-        # if channel_state_id == ChannelState.PUBLIC.value:
-        #     channel_state = "🌐 Public"
-        # elif channel_state_id == ChannelState.LOCKED.value:
-        #     channel_state = "🔒 Locked"
-        # elif channel_state_id == ChannelState.HIDDEN.value:
-        #     channel_state = "🙈 Hidden"
-        # else:
-        #     channel_state = "None"
-        # self.add_field(name="Access", value=f"{channel_state}", inline=True)
+        if state_changeable:
+            channel_state_id = temp_channel_info.channel_state
+            if channel_state_id == ChannelState.PUBLIC.value:
+                channel_state = "🌐 Public"
+            elif channel_state_id == ChannelState.LOCKED.value:
+                channel_state = "🔒 Locked"
+            elif channel_state_id == ChannelState.HIDDEN.value:
+                channel_state = "🙈 Hidden"
+            else:
+                channel_state = "None"
+            self.add_field(name="Access", value=f"{channel_state}", inline=True)
+
+
+async def is_owner(view, interaction):
+    owner_id = view.bot.db.get_temp_channel_info(interaction.channel.id).owner_id
+    if owner_id is None:
+        view.bot.db.set_owner_id(interaction.channel.id, owner_id)
+        await update_info_embed(view.bot, interaction.channel)
+        return True
+    elif view.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
+        view.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
+        await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
+        return False
+    else:
+        return True
 
 
 class ButtonsView(View):
@@ -118,11 +136,10 @@ class ButtonsView(View):
 
         self.create_items()
 
-    async def send_initial_message(self):
-        embeds = [ChannelInfoEmbed(self.bot, self.temp_channel)]
-        if icon_description_embed:
-            embed = ControlIconsEmbed()
-            embeds.append(embed)
+    async def send_initial_message(self, channel_name=None):
+        embeds = [ChannelInfoEmbed(self.bot, self.temp_channel, title=channel_name)]
+        if buttons_description_embed:
+            embeds.append(ControlIconsEmbed())
         self.control_message = await self.temp_channel.send("", embeds=embeds, view=self)
 
     def create_items(self):
@@ -205,7 +222,7 @@ class ButtonsView(View):
             disabled=True
         )
 
-        if labeled_icons:
+        if button_labels:
             lock_button.label = "Lock"
             hide_button.label = "Hide"
             public_button.label = "Public"
@@ -213,12 +230,25 @@ class ButtonsView(View):
             limit_button.label = "Edit Limit"
             clear_button.label = "Clear Msgs"
             delete_button.label = "Delete"
-            give_button.label = "Give/Claim"
+            give_button.label = "Give"
             ban_button.label = "Ban User"
 
+        if not use_dropdown_instead_of_buttons:
+            self.add_item(name_button)
+            self.add_item(limit_button)
+            self.add_item(clear_button)
+            self.add_item(delete_button)
+            self.add_item(give_button)
+            self.add_item(ban_button)
+
+        if state_changeable:
+            self.add_item(public_button)
+            self.add_item(lock_button)
+            self.add_item(hide_button)
+
+        public_button.callback = self.public_button_callback
         lock_button.callback = self.lock_button_callback
         hide_button.callback = self.hide_button_callback
-        public_button.callback = self.public_button_callback
         name_button.callback = self.name_button_callback
         limit_button.callback = self.limit_button_callback
         clear_button.callback = self.clear_button_callback
@@ -226,22 +256,48 @@ class ButtonsView(View):
         give_button.callback = self.give_button_callback
         ban_button.callback = self.ban_button_callback
 
-        # self.add_item(public_button)
-        # self.add_item(hide_button)
-        # self.add_item(lock_button)
-        #
-        # self.add_item(banner_button)
+        if use_dropdown_instead_of_buttons:
+            class ActionDropdown(discord.ui.Select):
+                def __init__(select_self):
+                    options = [
+                        discord.SelectOption(value="rename", label="Rename Channel", emoji="🏷️"),
+                        discord.SelectOption(value="limit", label="Edit User Limit", emoji="🚧"),
+                        discord.SelectOption(value="clear", label="Clear Messages", emoji="🧽"),
+                        discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨"),
+                        discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"),
+                        discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️"),
+                    ]
 
-        self.add_item(name_button)
-        self.add_item(limit_button)
-        self.add_item(give_button)
+                    super().__init__(
+                        placeholder="Channel Actions…",
+                        min_values=1,
+                        max_values=1,
+                        options=options,
+                        row=0
+                    )
 
-        self.add_item(clear_button)
-        self.add_item(ban_button)
-        self.add_item(delete_button)
+                async def callback(select_self, interaction: discord.Interaction):
+                    choice = select_self.values[0]
+
+                    if choice == "rename":
+                        await self.name_button_callback(interaction)
+                    elif choice == "limit":
+                        await self.limit_button_callback(interaction)
+                    elif choice == "give":
+                        await self.give_button_callback(interaction)
+                    elif choice == "clear":
+                        await self.clear_button_callback(interaction)
+                    elif choice == "ban":
+                        await self.ban_button_callback(interaction)
+                    elif choice == "delete":
+                        await self.delete_button_callback(interaction)
+                    await self.update()  # Clears selected option
+
+            self.add_item(ActionDropdown())
 
     async def update(self):
-        embeds = [ChannelInfoEmbed(self.bot, self.control_message.channel), ControlIconsEmbed()]
+        embeds = self.control_message.embeds
+        embeds[0] = ChannelInfoEmbed(self.bot, self.control_message.channel)
         self.clear_items()
         self.create_items()
         await self.control_message.edit(view=self, embeds=embeds)
@@ -264,36 +320,30 @@ class ButtonsView(View):
 
     # --- Callbacks ---
     async def lock_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("You selected `lock`", ephemeral=True, delete_after=20)
+        await interaction.response.send_message("You selected `lock`. This is currently a WIP.", ephemeral=True, delete_after=20)
 
     async def hide_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("You selected `hide`", ephemeral=True, delete_after=20)
+        await interaction.response.send_message("You selected `hide`. This is currently a WIP.", ephemeral=True, delete_after=20)
 
     async def public_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("You selected `public`", ephemeral=True, delete_after=20)
+        await interaction.response.send_message("You selected `public`. This is currently a WIP.", ephemeral=True, delete_after=20)
 
     async def name_button_callback(self, interaction: discord.Interaction):
-        if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
-            self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
-            return await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
-
+        if not await is_owner(self, interaction):
+            return
         modal = ChangeNameModal(self.bot, interaction.channel)
         await interaction.response.send_modal(modal)
 
     async def limit_button_callback(self, interaction: discord.Interaction):
-        if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
-            self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
-            return await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
-
+        if not await is_owner(self, interaction):
+            return
         modal = UserLimitModal(self.bot, interaction.channel)
         await interaction.response.send_modal(modal)
 
     async def clear_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
-            self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
-            return await interaction.followup.send(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
-
+        if not await is_owner(self, interaction):
+            return
         excluded_message_ids = []
         if interaction.message:
             excluded_message_ids.append(interaction.message.id)
@@ -323,10 +373,8 @@ class ButtonsView(View):
 
     async def delete_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        if self.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
-            self.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
-            return await interaction.followup.send(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
-
+        if not await is_owner(self, interaction):
+            return
         # Ask for confirmation
         embed = discord.Embed(
             title="Channel Deletion Confirmation",
@@ -377,10 +425,176 @@ class ButtonsView(View):
                 pass
 
     async def give_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("You selected `give`", ephemeral=True, delete_after=20)
+        await interaction.response.defer(ephemeral=True)
+        if not await is_owner(self, interaction):
+            return
+        await GiveOwnershipView(self.bot, interaction.channel).send_initial_message(interaction)
 
     async def ban_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("You selected `ban`", ephemeral=True, delete_after=20)
+        await interaction.response.defer(ephemeral=True)
+        if not await is_owner(self, interaction):
+            return
+        await BanUserView(self.bot, interaction.channel).send_initial_message(interaction)
+
+
+class GiveOwnershipView(discord.ui.View):
+    def __init__(self, bot, channel):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.channel = channel
+        self.message = None
+
+        class SelectUserMenu(discord.ui.Select):
+            def __init__(self, bot, channel):
+                self.bot = bot
+                self.channel = channel
+
+                owner_id = self.bot.db.get_temp_channel_info(channel.id).owner_id
+
+                options = []
+                options.append(
+                    discord.SelectOption(
+                        label=f"Noone (allows anyone to claim)",
+                        description=f"",
+                        value=f"None",
+                        emoji="❌"
+                    )
+                )
+                for member in channel.members:
+                    if member.id == owner_id:
+                        continue
+                    options.append(
+                        discord.SelectOption(
+                            label=f"{member.display_name}",
+                            description=f"",
+                            value=f"{member.id}",
+                            emoji="👥"
+                        )
+                    )
+
+                super().__init__(placeholder="Select user to transfer ownership to", options=options, min_values=1, max_values=1)
+
+            async def callback(self, interaction: discord.Interaction):
+                owner_perms = {'connect': True, 'view_channel': True}
+                if self.values[0] == "None":
+                    selected_member = None
+
+                    embed = discord.Embed(
+                        title="Channel available to Claim!",
+                        description=f"Ownership of your channel has been removed.",
+                        color=0x00ff00
+                    )
+                    embed.set_footer(text="This message will disappear in 20 seconds.")
+                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
+
+                    self.bot.db.set_owner_id(self.channel.id, None)
+
+                    await update_info_embed(self.bot, self.channel)
+
+                else:
+                    selected_member = interaction.guild.get_member(int(self.values[0]))
+
+                if selected_member:
+                    await self.channel.set_permissions(
+                        selected_member,
+                        **owner_perms
+                    )
+
+                    self.bot.db.set_owner_id(self.channel.id, selected_member.id)
+                    await update_info_embed(self.bot, self.channel)
+
+                    embed = discord.Embed(
+                        title="Transferred!",
+                        description=f"Ownership of your channel was successfully transferred to {selected_member.mention}.",
+                        color=0x00ff00
+                    )
+                    embed.set_footer(text="This message will disappear in 20 seconds.")
+                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
+
+                    embed = discord.Embed(
+                        title="Channel Ownership",
+                        description=f"You now own this channel! Use the above buttons to manage it as you wish.",
+                        color=discord.Color.blue()
+                    )
+                    embed.set_footer(text="This message will disappear in 60 seconds.")
+                    await self.channel.send(f"{selected_member.mention}", embed=embed, delete_after=60)
+
+        self.add_item(SelectUserMenu(bot, self.channel))
+
+    async def send_initial_message(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🎁 Who would you like to give your channel to?",
+            description=f"You have 60 seconds to select one member.",
+            footer=discord.EmbedFooter("You have 60 seconds to select an option."),
+            color=0x00ff00
+        )
+        self.message = await interaction.followup.send(embed=embed, view=self, ephemeral=True, wait=True)  # wait ensures that self.message is set before continuing
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
+
+
+class BanUserView(discord.ui.View):
+    def __init__(self, bot, channel):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.channel = channel
+        self.message = None
+
+    @discord.ui.mentionable_select(
+        placeholder="Select members or roles to ban",
+        min_values=0,
+        max_values=25
+    )
+    async def select_callback(self, select, interaction: discord.Interaction):
+        ban_perms = {'connect': False, 'view_channel': False}
+        selected_members = select.values
+        members = []
+        owner_id = self.bot.db.get_temp_channel_info(self.channel.id).owner_id
+        connected_members = self.channel.members
+
+        for member in selected_members:
+            if member:
+                if member.id != owner_id:
+                    members.append(member)
+                    await self.channel.set_permissions(
+                        member,
+                        **ban_perms
+                    )
+                    if member in connected_members:
+                        await member.move_to(None)
+
+        if len(members) > 0:
+            embed = discord.Embed(
+                title=f"Banned!",
+                description=f"Banned {len(members)} member(s)/role(s) from your channel.",
+                color=0x00ff00
+            )
+            embed.set_footer(text="This message will disappear in 10 seconds.")
+            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
+
+    async def send_initial_message(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🔨 Who would you like to ban from your channel?",
+            description=f"They will not be able to see or connect to your channel",
+            footer=discord.EmbedFooter("You have 60 seconds to select at least one member."),
+            color=0x00ff00
+        )
+        self.message = await interaction.followup.send(embed=embed, view=self, ephemeral=True, wait=True)  # wait ensures that self.message is set before continuing
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
+
+
+
 
 
 class ChangeNameModal(discord.ui.Modal):
