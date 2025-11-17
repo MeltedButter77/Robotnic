@@ -90,8 +90,8 @@ async def clear_empty_temp_channels(bot):
 
                 if len(channel.members) == 0:
                     bot.logger.debug(f"Deleting empty temp channel \'{channel.name}\'")
-                    bot.db.remove_temp_channel(channel.id)
                     await channel.delete()
+                    bot.db.remove_temp_channel(channel.id)
 
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
