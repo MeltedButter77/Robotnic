@@ -1,3 +1,5 @@
+from asyncio import wait_for
+
 import discord
 from discord.ui import View, Select, Button, Modal, InputText
 from discord.ext import commands
@@ -9,7 +11,21 @@ class CreatorMenuCog(commands.Cog):
 
     @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
     @discord.default_permissions(administrator=True)
-    async def creator(self, ctx):
+    async def setup_advanced(self, ctx):
+        if not ctx.author.guild_permissions.administrator:
+            return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
+
+        embeds = [
+            OptionsEmbed(is_advanced=True),
+            ListCreatorsEmbed(guild=ctx.guild, bot=self.bot, is_advanced=True),
+        ]
+        view = CreateView(ctx=ctx, bot=self.bot, is_advanced=True)
+        message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
+        view.message = message
+
+    @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
+    @discord.default_permissions(administrator=True)
+    async def setup(self, ctx):
         if not ctx.author.guild_permissions.administrator:
             return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
 
@@ -27,16 +43,17 @@ def setup(bot):
 
 
 class EditModal(Modal):
-    def __init__(self, view, creator_id):
+    def __init__(self, view, creator_id, is_advanced: bool = False):
         super().__init__(title="Example Modal")
         self.view = view
         self.creator_id = creator_id
 
         # Add input fields
-        self.add_item(InputText(label="Name of Temporary Channel", placeholder="Can include {user}, {activity} or {count}", required=False))
-        self.add_item(InputText(label="User Limit", placeholder="Enter integer 0-99 (0 = Unlimited)", required=False))
-        self.add_item(InputText(label="Temp Channel Category ID", placeholder="Enter 0 (for same as creator) or category ID", required=False))
-        self.add_item(InputText(label="Temp Channel Permissions", placeholder="Enter integer 0-2 (differences explained in /creator menu)", required=False))
+        self.add_item(InputText(label="Name of Temporary Channel Created", placeholder="Can include variables {user}, {activity} or {count}", required=False))
+        if is_advanced:
+            self.add_item(InputText(label="User Limit", placeholder="Enter integer 0-99 (0 = Unlimited)", required=False))
+            self.add_item(InputText(label="Temp Channel Category ID", placeholder="Enter 0 (for same as creator) or category ID", required=False))
+            self.add_item(InputText(label="Temp Channel Permissions", placeholder="Enter integer 0-2 (differences explained in /creator menu)", required=False))
 
     async def callback(self, interaction: discord.Interaction):
         errors = []
@@ -110,20 +127,23 @@ class EditModal(Modal):
 
 
 class OptionsEmbed(discord.Embed):
-    def __init__(self):
+    def __init__(self, is_advanced: bool = False):
         super().__init__(
             title="Creator Channels' Options",
             color=discord.Color.blue()
         )
 
-        self.add_field(name="1. Child Name", value="This is the pattern the created channel's names will follow\n> Available Variables: `{user}`, `{count}` & `{activity}`\n> (Default: `{user}'s channel`)", inline=False)
-        self.add_field(name="2. User Limit", value="The user limit set on created channels\n> `0` = Unlimited\n> Accepts any integer `0`-`99` inclusive (Default: `0`)", inline=False)
-        self.add_field(name="3. Category", value="Which category created channels are placed in\n> `0` = Same as creator\n> Accepts category ID as input (Default: `0`)", inline=False)
-        self.add_field(name="4. Permissions", value="Whether the created channels should have the same permissions as the creator, category or none at all\n> `0` = No Permissions\n> `1` = Creator Channel\n> `2` = Relevant Category\n> Accepts integers `0`-`2` inclusive (Default: `1`)", inline=False)
+        self.add_field(name="1. Child Name", value="This is the pattern the created channel's names will follow\n> Available Variables: `{user}`, `{count}` & `{activity}`\n> (Default: `{user}'s Room`)", inline=False)
+        if is_advanced:
+            self.add_field(name="2. User Limit", value="The user limit set on created channels\n> `0` = Unlimited\n> Accepts any integer `0`-`99` inclusive (Default: `0`)", inline=False)
+            self.add_field(name="3. Category", value="Which category created channels are placed in\n> `0` = Same as creator\n> Accepts category ID as input (Default: `0`)", inline=False)
+            self.add_field(name="4. Permissions", value="Whether the created channels should have the same permissions as the creator, category or none at all\n> `0` = No Permissions\n> `1` = Creator Channel\n> `2` = Relevant Category\n> Accepts integers `0`-`2` inclusive (Default: `1`)", inline=False)
+        else:
+            self.add_field(name="For more Options, use `/setup_advanced` instead", value="", inline=False)
 
 
 class ListCreatorsEmbed(discord.Embed):
-    def __init__(self, guild, bot):
+    def __init__(self, guild, bot, is_advanced: bool = False):
         super().__init__(
             title="Selected Options for each Creator Channel",
             color=discord.Color.green()
@@ -148,8 +168,14 @@ class ListCreatorsEmbed(discord.Embed):
                 else:  # should be for case 0
                     overwrites = "0 = None. Permissions are cleared"
 
-                desc = f"Created Channels' Names:\n> `{child_name}`\nUser Limit:\n> `{user_limit}`\nCategory:\n> `{category}`\nPermission Inheritance:\n> `{overwrites}`"
+                if is_advanced:
+                    desc = f"Names of Created Channels:\n> `{child_name}`\nUser Limit:\n> `{user_limit}`\nCategory:\n> `{category}`\nPermission Inheritance:\n> `{overwrites}`"
+                else:
+                    desc = f"Name Scheme:\n> `{child_name}`"
                 self.add_field(name=f"#{i+1}. {channel.mention}", value=desc, inline=True)
+
+        if not is_advanced:
+            self.add_field(name="For more Options, use `/setup_advanced` instead", value="", inline=False)
 
         # Handle case of no fields. Also prevents error of no embed content
         if len(self.fields) < 1:
@@ -157,11 +183,12 @@ class ListCreatorsEmbed(discord.Embed):
 
 
 class CreateView(View):
-    def __init__(self, ctx, bot):
+    def __init__(self, ctx, bot, is_advanced: bool = False):
         super().__init__()
         self.bot = bot
         self.message = None
         self.author = ctx.author
+        self.is_advanced = is_advanced
 
         self.create_items(ctx.guild)
 
@@ -198,7 +225,7 @@ class CreateView(View):
             self.add_item(select)
 
         # Buttons (same row)
-        button1 = Button(label="Create new Creator channel", style=discord.ButtonStyle.success)  # primary, danger
+        button1 = Button(label=f"Make new Creator", style=discord.ButtonStyle.success)  # primary, danger
         button1.callback = self.button_callback
 
         # Add buttons to the view
@@ -218,7 +245,7 @@ class CreateView(View):
         if interaction.user.id != self.author.id:
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
-        modal = EditModal(self, creator_id=interaction.data["values"][0])
+        modal = EditModal(self, creator_id=interaction.data["values"][0], is_advanced=self.is_advanced)
         await interaction.response.send_modal(modal)
         await self.update()  # If modal isnt submitted the dropdown wont be already used/selected
 
@@ -228,7 +255,7 @@ class CreateView(View):
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
         new_creator_channel = await interaction.guild.create_voice_channel("➕ Create Channel")
-        self.bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s channel", 0, 0, 1)
+        self.bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s Room", 0, 0, 1)
 
         embeds = [discord.Embed(), discord.Embed()]
         embeds[0].title = f"Created {new_creator_channel.mention}! Join to see how it works."
@@ -237,8 +264,8 @@ class CreateView(View):
         embeds[1].add_field(name="", value="**Move the channel** to your desired location and **change its name** if you wish to distinguish it from other Creator Channels.", inline=True)
         embeds[1].add_field(name="", value="If you wish to edit the **name scheme** of temp channels, please **select a Creator Channel to edit above**", inline=True)
         embeds[1].add_field(name="", value="Any temp channels it creates, by default, will **inherit the same permissions as the creator**.", inline=True)
-
-        await interaction.response.send_message(f"", embeds=embeds, ephemeral=True)
+        embeds[1].footer = discord.EmbedFooter("This message will disappear in 60 seconds")
+        await interaction.response.send_message(f"", embeds=embeds, ephemeral=True, delete_after=60)
         await self.update()
 
         if self.bot.notification_channel:
