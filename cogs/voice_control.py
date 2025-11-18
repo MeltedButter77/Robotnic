@@ -5,6 +5,8 @@ from enum import Enum
 import discord
 from discord.ext import commands
 from pathlib import Path
+import cogs.voice_logic
+
 
 script_dir = Path(__file__).parent
 settings_path = script_dir / "../settings.json"
@@ -71,12 +73,19 @@ class ChannelInfoEmbed(discord.Embed):
             color=discord.Color.blue()
         )
 
+        temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
+
         # title input incase it was just changed and propagated to channel yet
         self.title = title
         if not self.title:
-            self.title = f"{temp_channel.name}"
+            is_renamed = temp_channel_info.is_renamed
+            if is_renamed:
+                self.title = f"{temp_channel.name}"
+            else:
+                self.title = cogs.voice_logic.create_temp_channel_name(bot, temp_channel)
 
-        temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
+        self.footer = discord.EmbedFooter("Channel Name will update as quickly as Discord Allows.")
+
 
         owner_id = temp_channel_info.owner_id
         if owner_id:
@@ -113,12 +122,17 @@ class ChannelInfoEmbed(discord.Embed):
 
 
 async def is_owner(view, interaction):
+    if not interaction.user in interaction.channel.members:
+        view.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they are not connected to.")
+        await interaction.response.send_message(f"You are not connected to this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
+        return False
+
     owner_id = view.bot.db.get_temp_channel_info(interaction.channel.id).owner_id
     if owner_id is None:
-        view.bot.db.set_owner_id(interaction.channel.id, owner_id)
+        view.bot.db.set_owner_id(interaction.channel.id, interaction.user.id)
         await update_info_embed(view.bot, interaction.channel)
         return True
-    elif view.bot.db.get_temp_channel_info(interaction.channel.id).owner_id != interaction.user.id:
+    elif owner_id != interaction.user.id:
         view.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
         await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
         return False
@@ -594,9 +608,6 @@ class BanUserView(discord.ui.View):
                 pass
 
 
-
-
-
 class ChangeNameModal(discord.ui.Modal):
     def __init__(self, bot, channel):
         super().__init__(title="Edit Your Channel")
@@ -621,12 +632,13 @@ class ChangeNameModal(discord.ui.Modal):
 
         # If inputted name, schedule update channel and update db
         if self.channel_name.value:
-            await self.bot.renamer.schedule_name_update(self.channel, channel_name)
+            await self.bot.renamer.schedule(self.channel, channel_name)
             await update_info_embed(self.bot, self.channel, title=channel_name)
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, True)
         else:
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, False)
-            # Should trigger Channel name and control embed updates. currently handled by coroutine.
+            temp_channel_ids = self.bot.db.get_temp_channel_ids()
+            await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, temp_channel_ids)
 
         embed = discord.Embed(
             title="Changes Saved",

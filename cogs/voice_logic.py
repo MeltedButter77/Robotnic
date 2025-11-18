@@ -29,7 +29,7 @@ class VoiceLogicCog(commands.Cog):
 
                 # Update channel names of all temp channels
                 temp_channel_ids = self.bot.db.get_temp_channel_ids()
-                await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, temp_channel_ids)
+                await update_channel_name_and_control_msg(self.bot, temp_channel_ids)
 
         # Updates temp channel name if child_name_template has activities and a connected user changes activities
         if after and after.channel:
@@ -44,7 +44,7 @@ class VoiceLogicCog(commands.Cog):
                 # If the current name is different to the correct name, rename it.
                 if temp_channel.name != new_channel_name:
                     self.bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name} due to activity change")
-                    await self.bot.renamer.schedule_name_update(temp_channel, new_channel_name)
+                    await self.bot.renamer.schedule(temp_channel, new_channel_name)
 
 
 def setup(bot):
@@ -76,7 +76,7 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
             if temp_channel.name != new_channel_name:
                 if len(temp_channel.members) > 0:  # If empty it is going to be deleted, ignore
                     bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
-                    await bot.renamer.schedule_name_update(temp_channel, new_channel_name)
+                    await bot.renamer.schedule(temp_channel, new_channel_name)
                     # await temp_channel.edit(name=new_channel_name)
 
         # Update control message
@@ -106,76 +106,119 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
 # - (depending on timing) Channel could be rate-limited and the channel is renamed word then rate limited,
 # renamed launcher then limited and finally game after far too long.
 # - This class should prevent old rate-limited names from being applied if a more recent up-to-date name is preferable
-# - To use this, use: await bot.renamer.schedule_name_update(temp_channel, new_name) instead of: await temp_channel.edit(name=new_name)
+# - To use this, use: await bot.renamer.schedule(temp_channel, new_name) instead of: await temp_channel.edit(name=new_name)
 class TempChannelRenamer:
     def __init__(self, bot):
         self.bot = bot
-        self.pending = {}  # channel_id -> RenameState
-        self.last_edit_time = {}  # channel_id → timestamp
-        self.min_interval = 30.0  # seconds between edits
 
-    class RenameState:
-        def __init__(self, new_name):
-            self.desired_name = new_name
-            self.version = time.time()
-            self.task = None
+        # Each channel ID stores its own rename queue
+        self.rename_queues = {}       # channel_id - asyncio.Queue()
 
-    async def schedule_name_update(self, temp_channel, new_name):
-        cid = temp_channel.id
+        # Each channel ID stores a worker task that processes renames
+        self.rename_workers = {}      # channel_id - asyncio.Task()
 
-        # If channel has no pending state
-        if cid not in self.pending:
-            self.pending[cid] = self.RenameState(new_name)
-        else:
-            # Update existing name and version stamp
-            state = self.pending[cid]
-            state.desired_name = new_name
-            state.version = time.time()
+        # Tracks when each channel was last renamed
+        self.last_rename_time = {}    # channel_id - timestamp
 
-        # If a task is already running, don’t start another
-        if self.pending[cid].task is not None:
-            return
+        # Minimum safe time between renames (10 minutes)
+        self.minimum_interval = 600.0
 
-        # Create an async task to process update
-        self.pending[cid].task = asyncio.create_task(
-            self._perform_update(temp_channel, cid)
-        )
+    async def schedule(self, channel: discord.abc.GuildChannel, new_name: str):
+        """
+        Request that a channel be renamed.
+        Only the most recent name requested is kept.
+        """
 
-    async def _perform_update(self, temp_channel, cid):
-        now = time.time()
-        last = self.last_edit_time.get(cid, 0)
+        channel_id = channel.id
 
-        # Enforce cooldown of min_interval. Prevents discord hard rate-limits of 10-15 minutes
-        if now - last < self.min_interval:
-            self.bot.logger.debug("Waiting to rename channel to enforce minimum interval.")
-            wait_time = self.min_interval - (now - last)
-            await asyncio.sleep(wait_time)
+        # Create a queue for this channel if needed
+        if channel_id not in self.rename_queues:
+            self.rename_queues[channel_id] = asyncio.Queue()
+            self.bot.logger.debug(f"[RENAMER] Created queue for channel {channel_id}.")
 
-        state = self.pending[cid]
-        start_version = state.version
+        queue = self.rename_queues[channel_id]
 
-        # Debounce window, prevents rapid spam
-        await asyncio.sleep(1.0)
+        # Remove any older requested names.
+        # This ensures only the newest one is kept.
+        dropped_count = 0
+        while not queue.empty():
+            try:
+                queue.get_nowait()
+                dropped_count += 1
+            except asyncio.QueueEmpty:
+                break
+        if dropped_count > 0:
+            self.bot.logger.debug(f"[RENAMER] Dropped {dropped_count} older queued rename(s) for channel {channel_id}.")
 
-        # If a newer update request occurred, ignore this one
-        if state.version != start_version:
-            # Allow a future update to be scheduled
-            self.pending[cid].task = None
-            return
+        # Add the newest desired name to the queue
+        await queue.put(new_name)
+        self.bot.logger.debug(f"[RENAMER] Queued rename request for channel {channel_id}: '{new_name}'.")
 
-        # Perform the actual rename
-        try:
-            await temp_channel.edit(name=state.desired_name)
-            self.last_edit_time[cid] = time.time()
-        except discord.HTTPException as error:
-            if error.status == 429:
-                self.bot.logger.debug("Rate limited by discord.")
-                return
-            else:
-                raise
+        # Start a worker for this channel if none exists
+        if (channel_id not in self.rename_workers or self.rename_workers[channel_id].done()):
+            self.rename_workers[channel_id] = asyncio.create_task(self._worker(channel))
+            self.bot.logger.debug(f"[RENAMER] Started worker task for channel {channel_id}.")
 
-        # Marks task as finished
-        self.pending[cid].task = None
+    async def _worker(self, channel):
+        """
+        Worker task that processes rename requests for a single channel.
+        It exits when no more rename requests exist.
+        """
+
+        channel_id = channel.id
+        queue = self.rename_queues[channel_id]
+
+        while True:
+            # Get the next requested new name
+            new_name = await queue.get()
+            self.bot.logger.debug(f"[RENAMER] Worker for channel {channel_id} received rename request '{new_name}'.")
+
+            # Small delay to collect multiple rapid rename requests
+            await asyncio.sleep(1.0)
+
+            # If more names were queued during the delay, keep only the newest one
+            dropped = 0
+            while not queue.empty():
+                new_name = await queue.get()
+                dropped += 1
+            if dropped > 0:
+                self.bot.logger.debug(f"[RENAMER] Worker for channel {channel_id} replaced with newer name '{new_name}', dropped {dropped} older entries.")
+
+            # Enforce the minimum time between renames
+            last_time = self.last_rename_time.get(channel_id, 0)
+            time_since_last = time.time() - last_time
+            time_remaining = self.minimum_interval - time_since_last
+
+            if time_remaining > 0:
+                self.bot.logger.debug(f"[RENAMER] Channel {channel_id} must wait {time_remaining:.2f} seconds before renaming again.")
+                await asyncio.sleep(time_remaining)
+
+            self.bot.logger.debug(f"[RENAMER] Renaming channel {channel_id} to '{new_name}'.")
+
+            # Try to perform the rename
+            try:
+                await channel.edit(name=new_name)
+                self.bot.logger.debug(f"[RENAMER] Successfully renamed channel {channel_id} to '{new_name}'.")
+                self.last_rename_time[channel_id] = time.time()
+
+            except discord.HTTPException as error:
+                if error.status == 429:
+                    # The library almost never throws this.
+                    retry_seconds = getattr(error, "retry_after", 10)
+                    self.bot.logger.warning(f"[RENAMER] Channel {channel_id} hit a rate limit. Retrying in {retry_seconds + 1} seconds.")
+                    await asyncio.sleep(retry_seconds + 1)
+                    continue
+                else:
+                    raise
+
+            # If there are no pending rename requests, exit the worker
+            if queue.empty():
+                self.bot.logger.debug(f"[RENAMER] Worker for channel {channel_id} found no more tasks. Exiting.")
+                break
+
+        # Cleanup after the worker finishes
+        self.rename_queues.pop(channel_id, None)
+        self.rename_workers.pop(channel_id, None)
 
 
 def create_temp_channel_name(bot, temp_channel, db_temp_channel_info=None, db_creator_channel_info=None):
@@ -323,7 +366,7 @@ async def create_on_join(member, before, after, bot):
     # category with no overwrites will auto get overwrites of the category even if
     # {} is passed in overwrites
     try:
-        # Use bot.renamer to avoid rate-limit problems
+        # Could use bot.renamer to avoid rate-limit problems
         await new_temp_channel.edit(
             name=channel_name,
             user_limit=db_creator_channel_info.user_limit,
