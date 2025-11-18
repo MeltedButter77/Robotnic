@@ -41,7 +41,8 @@ Requirements.txt
 
 ## Commands Overview
 - `/ping` -> Test the bot’s latency.
-- `/creator` -> Create a new Creator Channel and open the configuration menu.
+- `/setup` -> Create a new Creator Channel and open the configuration menu.
+- `/setup-advanced` -> Unlocks all settings available when making Creator Channels
 
 ## Self-Hosting Setup
 If you’d like to run your own instance of Robotnic:
