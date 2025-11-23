@@ -69,12 +69,15 @@ python main.py
 ```
 Please make sure you have message, member and activity intents enabled in the Discord Developer Portal for your bot.
 
-## Planned Future Features:
+## Planned Future Features: (Stricked features have been implemented)
 1. ~~Support {count} and {activity} channel name variables~~ Implemented
    1. ~~Change temp channel count to always be ascending & not missing lower number~~ Implemented
-2. Owner's of temp channels being able to control its visibility, kick or ban members, edit its name & more
+2. Owner's of temp channels being able to control its visibility, ~~kick or ban members, edit its name~~ & more
    1. ~~If an owner has left, any user can claim the channel~~ Implemented
    2. All options should be togglable by admins when creating the Creator Channel
 3. ~~Send a message on server join explaining the bot~~ Implemented
 4. ~~Improve lack of permission handling. Currently, there is a high chance of errors if the bot has insufficient permissions.~~ Vastly Improved
 5. Create a website to advertise and explain the bot's features
+6. Server-side settings to:
+   1. Set a logs channel
+   2. Set a profanity filter
