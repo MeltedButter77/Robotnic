@@ -131,6 +131,8 @@ class Bot(discord.AutoShardedBot):
         self.db = database
         self.notification_channel = None
         self.renamer = voice_logic.TempChannelRenamer(self)
+
+        self.topgg_client = None
         if topgg_token:
             self.topgg_client = DBLClient(self, topgg_token)
             self.logger.info(f'Connected TOPGG Client')
