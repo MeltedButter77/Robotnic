@@ -7,6 +7,7 @@ import dotenv
 from database import Database
 from pathlib import Path
 from datetime import datetime
+from topgg import DBLClient
 
 # Main.py Logic Structure
 # 1. Set Directories
@@ -103,6 +104,7 @@ else:
 # Get Token
 dotenv.load_dotenv()
 client_token = os.getenv("TOKEN")
+topgg_token = os.getenv("TOPGG_TOKEN")
 # Handle placeholder or no token
 if client_token == placeholder or not client_token:
     logger.error(
@@ -118,7 +120,7 @@ else:
 
 # Subclassed discord.Bot allowing for methods to correspond directly with bot triggers
 class Bot(discord.AutoShardedBot):
-    def __init__(self, token, logger, database):
+    def __init__(self, token, topgg_token, logger, database):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.presences = True
@@ -129,6 +131,9 @@ class Bot(discord.AutoShardedBot):
         self.db = database
         self.notification_channel = None
         self.renamer = voice_logic.TempChannelRenamer(self)
+        if topgg_token:
+            self.topgg_client = DBLClient(self, topgg_token)
+            self.logger.info(f'Connected TOPGG Client')
 
     async def on_ready(self):
         self.logger.info(f'Logged in as {self.user}')
@@ -230,7 +235,7 @@ class Bot(discord.AutoShardedBot):
             sys.exit(1)
 
 
-bot = Bot(client_token, logger, Database("database.db"))
+bot = Bot(client_token, topgg_token, logger, Database("database.db"))
 # Load all cogs from /cogs
 for filename in os.listdir("./cogs"):
     if filename.endswith(".py") and not filename.startswith("_"):

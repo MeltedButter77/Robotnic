@@ -44,6 +44,11 @@ async def update_presence(bot):
             await bot.change_presence(activity=discord.Game(status_text))
             bot.logger.debug(f"Updated presence to \'{status_text}\'")
 
+            # Post guild count to TopGG
+            if bot.topgg_client:
+                await bot.topgg_client.post_guild_count()
+                bot.logger.debug(f"Posted Guild Count to TOPGG; {server_count}")
+
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
 
