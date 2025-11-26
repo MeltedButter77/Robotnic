@@ -234,7 +234,7 @@ class CreateView(View):
     async def update(self):
         embeds = [
             self.message.embeds[0],
-            ListCreatorsEmbed(self.message.guild, self.bot)
+            ListCreatorsEmbed(self.message.guild, self.bot, is_advanced=self.is_advanced)
         ]
         self.clear_items()
         self.create_items()
