@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,61 @@ class Database:
             )
         """)
         self.connection.commit()
+
+    def get_guild_settings(self, guild_id):
+        self.cursor.execute("""
+                            SELECT logs_channel_id, enabled_controls
+                            FROM guild_settings
+                            WHERE guild_id = ?
+                            """, (guild_id,))
+        row = self.cursor.fetchone()
+
+        if row is None:
+            return None
+
+        logs_channel_id, enabled_controls_json = row
+        enabled_controls = json.loads(enabled_controls_json) if enabled_controls_json else {}
+
+        return {
+            "guild_id": guild_id,
+            "logs_channel_id": logs_channel_id,
+            "enabled_controls": enabled_controls
+        }
+
+    def edit_guild_settings(
+            self,
+            guild_id: int,
+            logs_channel_id: int = None,
+            enabled_controls: str = None,
+    ):
+        fields = []
+        values = []
+
+        if logs_channel_id is not None:
+            fields.append("logs_channel_id = ?")
+            values.append(logs_channel_id)
+
+        if enabled_controls is not None:
+            fields.append("enabled_controls = ?")
+            values.append(enabled_controls)
+
+        if not fields:
+            # Nothing to update
+            return False
+
+        # Add the WHERE clause value
+        values.append(guild_id)
+
+        query = f"""
+            UPDATE creator_channels
+            SET {', '.join(fields)}
+            WHERE guild_id = ?
+        """
+
+        self.cursor.execute(query, tuple(values))
+        self.connection.commit()
+
+        return self.cursor.rowcount > 0  # Returns True if a row was updated
 
     def set_owner_id(self, channel_id, owner_id):
         self.cursor.execute("""UPDATE temp_channels SET owner_id = ? WHERE channel_id = ?""", (owner_id, channel_id,))
