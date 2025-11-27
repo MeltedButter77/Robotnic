@@ -66,7 +66,9 @@ class EditModal(Modal):
             errors.append("Child name must be under 100 characters.")
 
         # Validate user limit
-        user_limit_raw = self.children[1].value.strip()
+        # Each input may not exist as the simple version will only have 1 item in list self.children
+        user_limit_raw = self.children[1].value.strip() if len(self.children) > 1 else ""
+
         if user_limit_raw == "":
             user_limit = db_creator_channel_info.user_limit
         else:
@@ -78,7 +80,7 @@ class EditModal(Modal):
                 errors.append("User limit must be an integer.")
 
         # Validate Child Category ID
-        category_raw = self.children[2].value.strip()
+        category_raw = self.children[2].value.strip() if len(self.children) > 1 else ""
         if category_raw == "":
             child_category_id = db_creator_channel_info.child_category_id
         else:
@@ -91,7 +93,7 @@ class EditModal(Modal):
                 errors.append("Category ID must be an integer.")
 
         # Validate Child Overwrite optiuons
-        overwrites_raw = self.children[3].value.strip()
+        overwrites_raw = self.children[3].value.strip() if len(self.children) > 1 else ""
         if overwrites_raw == "":
             child_overwrites = db_creator_channel_info.child_overwrites
         else:
