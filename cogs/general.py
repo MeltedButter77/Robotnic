@@ -9,7 +9,7 @@ class DonateEmbed(discord.Embed):
         self.title = "💚 A Message from the Developer"
         self.description = (
             "Thank you for using Robotnic! 🤖\n"
-            "This is an **open source** project with a **free** public instance developed and hosted by "
+            "This is a **[FOSS](<https://wikipedia.org/wiki/Free_and_open-source_software>)** project with a **free** public instance developed and hosted by "
             "[MeltedButter77](https://github.com/MeltedButter77)."
         )
         self.add_field(

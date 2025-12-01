@@ -110,7 +110,7 @@ class EditModal(Modal):
                 f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),
                 ephemeral=True
             )
-            await self.view.update()
+            await self.view.update_view()
             return
 
         self.view.bot.db.edit_creator_channel(
@@ -125,7 +125,7 @@ class EditModal(Modal):
             f"Creator channel updated!",
             ephemeral=True
         )
-        await self.view.update()
+        await self.view.update_view()
 
 
 class OptionsEmbed(discord.Embed):
