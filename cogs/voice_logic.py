@@ -58,6 +58,7 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
     start = time.perf_counter()
 
     bot.db.fix_temp_channel_numbers()
+
     async def update(temp_channel_id):
         temp_channel = bot.get_channel(temp_channel_id)
         db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
@@ -104,14 +105,14 @@ class TempChannelRenamer:
     def __init__(self, bot):
         self.bot = bot
 
-        # Each channel ID stores its own rename queue
-        self.rename_queues = {}       # channel_id - asyncio.Queue()
+        # Each channel ID stores its own new_name (next name it will have once rate-limit gone)
+        self.name_queues = {}  # channel_id - asyncio.Queue()
 
         # Each channel ID stores a worker task that processes renames
-        self.rename_workers = {}      # channel_id - asyncio.Task()
+        self.rename_workers = {}  # channel_id - asyncio.Task()
 
         # Tracks when each channel was last renamed
-        self.last_rename_time = {}    # channel_id - timestamp
+        self.last_rename_time = {}  # channel_id - timestamp
 
         # Minimum safe time between renames (10 minutes)
         self.minimum_interval = 600.0
@@ -122,35 +123,14 @@ class TempChannelRenamer:
         Only the most recent name requested is kept.
         """
 
-        channel_id = channel.id
-
         # Create a queue for this channel if needed
-        if channel_id not in self.rename_queues:
-            self.rename_queues[channel_id] = asyncio.Queue()
-            self.bot.logger.debug(f"[RENAMER] Created queue for channel {channel_id}.")
-
-        queue = self.rename_queues[channel_id]
-
-        # Remove any older requested names.
-        # This ensures only the newest one is kept.
-        dropped_count = 0
-        while not queue.empty():
-            try:
-                queue.get_nowait()
-                dropped_count += 1
-            except asyncio.QueueEmpty:
-                break
-        if dropped_count > 0:
-            self.bot.logger.debug(f"[RENAMER] Dropped {dropped_count} older queued rename(s) for channel {channel_id}.")
-
-        # Add the newest desired name to the queue
-        await queue.put(new_name)
-        self.bot.logger.debug(f"[RENAMER] Queued rename request for channel {channel_id}: '{new_name}'.")
+        self.name_queues[channel.id] = new_name
+        self.bot.logger.debug(f"[RENAMER] Queued rename request for channel {channel.name} ({channel.id}): '{new_name}'.")
 
         # Start a worker for this channel if none exists
-        if (channel_id not in self.rename_workers or self.rename_workers[channel_id].done()):
-            self.rename_workers[channel_id] = asyncio.create_task(self._worker(channel))
-            self.bot.logger.debug(f"[RENAMER] Started worker task for channel {channel_id}.")
+        if (channel.id not in self.rename_workers or self.rename_workers[channel.id].done()):
+            self.rename_workers[channel.id] = asyncio.create_task(self._worker(channel))
+            self.bot.logger.debug(f"[RENAMER] Started worker task for channel {channel.name} ({channel.id})")
 
     async def _worker(self, channel):
         """
@@ -158,63 +138,58 @@ class TempChannelRenamer:
         It exits when no more rename requests exist.
         """
 
-        channel_id = channel.id
-        queue = self.rename_queues[channel_id]
+        new_name = self.name_queues[channel.id]
 
         while True:
-            # Get the next requested new name
-            new_name = await queue.get()
-            self.bot.logger.debug(f"[RENAMER] Worker for channel {channel_id} received rename request '{new_name}'.")
+            self.bot.logger.debug(
+                f"[RENAMER] Worker for channel {channel.name} ({channel.id}) received rename request '{new_name}'.")
 
             # Small delay to collect multiple rapid rename requests
             await asyncio.sleep(1.0)
 
-            # If more names were queued during the delay, keep only the newest one
-            dropped = 0
-            while not queue.empty():
-                new_name = await queue.get()
-                dropped += 1
-            if dropped > 0:
-                self.bot.logger.debug(f"[RENAMER] Worker for channel {channel_id} replaced with newer name '{new_name}', dropped {dropped} older entries.")
-
             # Enforce the minimum time between renames
-            last_time = self.last_rename_time.get(channel_id, 0)
+            last_time = self.last_rename_time.get(channel.id, 0)
             time_since_last = time.time() - last_time
             time_remaining = self.minimum_interval - time_since_last
-
             if time_remaining > 0:
-                self.bot.logger.debug(f"[RENAMER] Channel {channel_id} must wait {time_remaining:.2f} seconds before renaming again.")
+                self.bot.logger.debug(
+                    f"[RENAMER] Channel {channel.name} ({channel.id}) must wait {time_remaining:.2f} seconds before renaming again.")
                 await asyncio.sleep(time_remaining)
 
-            self.bot.logger.debug(f"[RENAMER] Renaming channel {channel_id} to '{new_name}'.")
+            # Get new name which may have changed while waiting
+            new_name = self.name_queues[channel.id]
 
-            # Try to perform the rename
+            self.bot.logger.debug(f"[RENAMER] Renaming channel {channel.name} ({channel.id}) to '{new_name}'.")
+
+        # Try to perform the rename
             try:
                 if channel.name != new_name:
                     await channel.edit(name=new_name)
-                    self.bot.logger.debug(f"[RENAMER] Successfully renamed channel {channel_id} to '{new_name}'.")
-                    self.last_rename_time[channel_id] = time.time()
+                    self.bot.logger.debug(f"[RENAMER] Successfully renamed channel {channel.name} ({channel.id}) to '{new_name}'.")
+                    self.last_rename_time[channel.id] = time.time()
                 else:
-                    self.bot.logger.debug(f"[RENAMER] Channel {channel_id} is already named '{new_name}'.")
+                    self.bot.logger.debug(f"[RENAMER] Channel {channel.name} ({channel.id}) is already named '{new_name}'.")
+                new_name = None
 
             except discord.HTTPException as error:
                 if error.status == 429:
                     # The library almost never throws this.
                     retry_seconds = getattr(error, "retry_after", 10)
-                    self.bot.logger.warning(f"[RENAMER] Channel {channel_id} hit a rate limit. Retrying in {retry_seconds + 1} seconds.")
+                    self.bot.logger.warning(
+                        f"[RENAMER] Channel {channel.name} ({channel.id}) hit a rate limit. Retrying in {retry_seconds + 1} seconds.")
                     await asyncio.sleep(retry_seconds + 1)
                     continue
                 else:
                     raise
 
             # If there are no pending rename requests, exit the worker
-            if queue.empty():
-                self.bot.logger.debug(f"[RENAMER] Worker for channel {channel_id} found no more tasks. Exiting.")
+            if new_name is None:
+                self.bot.logger.debug(f"[RENAMER] Worker has renamed {channel.name} ({channel.id}). Exiting.")
                 break
 
         # Cleanup after the worker finishes
-        self.rename_queues.pop(channel_id, None)
-        self.rename_workers.pop(channel_id, None)
+        self.name_queues.pop(channel.id, None)
+        self.rename_workers.pop(channel.id, None)
 
 
 def create_temp_channel_name(bot, temp_channel, db_temp_channel_info=None, db_creator_channel_info=None):
@@ -333,10 +308,14 @@ async def create_on_join(member, before, after, bot):
             position=creator_channel.position,
         )
     except discord.Forbidden as e:
-        bot.logger.debug(f"Permission error creating temp channel, handled by sending a message notifying of lack of perms. {e}")
+        bot.logger.debug(
+            f"Permission error creating temp channel, handled by sending a message notifying of lack of perms. {e}")
         embed = discord.Embed()
-        embed.add_field(name="Required", value="`view_channel`, `manage_channels`, `send_messages`, `manage_messages`, `read_message_history`, `connect`, `move_members`")
-        await creator_channel.send(f"Sorry {member.mention}, I require the following permissions. Make sure they are not overwritten by the category (In this case `{category.name}`).", embed=embed, delete_after=300)
+        embed.add_field(name="Required",
+                        value="`view_channel`, `manage_channels`, `send_messages`, `manage_messages`, `read_message_history`, `connect`, `move_members`")
+        await creator_channel.send(
+            f"Sorry {member.mention}, I require the following permissions. Make sure they are not overwritten by the category (In this case `{category.name}`).",
+            embed=embed, delete_after=300)
         return
 
     counts = bot.db.get_temp_channel_counts(creator_channel.id)
@@ -345,7 +324,8 @@ async def create_on_join(member, before, after, bot):
     else:
         count = max(counts) + 1
 
-    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count, False)
+    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count,
+                            False)
 
     try:
         await member.move_to(new_temp_channel)
@@ -378,7 +358,8 @@ async def create_on_join(member, before, after, bot):
         bot.db.remove_temp_channel(new_temp_channel.id)
 
     if bot.notification_channel:
-        await bot.notification_channel.send(f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
+        await bot.notification_channel.send(
+            f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
 
 
 async def delete_on_leave(member, before, after, bot):
@@ -393,14 +374,17 @@ async def delete_on_leave(member, before, after, bot):
             bot.db.remove_temp_channel(before.channel.id)
             bot.logger.debug(f"Channel not found removing entry in db, handled. {e}")
         except discord.Forbidden as e:
-            bot.logger.debug(f"Permission error removing temp channel, handled by sending a message notifying of lack of perms. {e}")
-            await before.channel.send(f"Sorry {member.mention}, I do not have permission to delete this channel.", delete_after=300)
+            bot.logger.debug(
+                f"Permission error removing temp channel, handled by sending a message notifying of lack of perms. {e}")
+            await before.channel.send(f"Sorry {member.mention}, I do not have permission to delete this channel.",
+                                      delete_after=300)
             return
         except Exception as e:
             bot.logger.error(f"Unknown error removing temp channel. {e}")
 
         if bot.notification_channel:
-            await bot.notification_channel.send(f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
+            await bot.notification_channel.send(
+                f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
 
     # Clear owner_id in db if owner leaves
     if len(before.channel.members) >= 1:
