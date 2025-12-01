@@ -1,4 +1,5 @@
-import time
+import pathlib
+import json
 import discord
 import asyncio
 import cogs.voice_logic
@@ -7,6 +8,15 @@ import cogs.voice_logic
 # All functions within this file will:
 # 1. Be called using discord.Bot.loop.create_task() within the main file.
 # 2. Have 2 inputs; bot and logger.
+
+
+script_dir = pathlib.Path(__file__).parent
+settings_path = script_dir / "settings.json"
+
+# Load settings
+with open(settings_path, "r") as f:
+    settings = json.load(f)
+status_text = settings["status"].get("text", "")
 
 
 async def create_tasks(bot):
@@ -40,9 +50,9 @@ async def update_presence(bot):
             member_count = 0
             for guild in bot.guilds:
                 member_count += guild.member_count
-            status_text = f"Online in {server_count} servers | {member_count} users."
-            await bot.change_presence(activity=discord.Game(status_text))
-            bot.logger.debug(f"Updated presence to \'{status_text}\'")
+            status = status_text.format(**locals())
+            await bot.change_presence(activity=discord.Game(status))
+            bot.logger.debug(f"Updated presence to \'{status}\'")
 
             # Post guild count to TopGG
             if bot.topgg_client:

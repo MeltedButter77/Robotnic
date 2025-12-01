@@ -59,13 +59,41 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-4. Configure the Bot. Replace `TOKEN_HERE` with your bot's token. (You need to make a Discord Bot through Discord's Developer Portal)
+4. Configure the Bot. In the .env file, replace `TOKEN_HERE` with your bot's token. (You need to make a Discord Bot through Discord's Developer Portal)
 ```
 TOKEN=TOKEN_HERE
 ```
 5. Run the Bot
 ```bash
 python main.py
+```
+Optionally: Edit the settings.json below is the default settings with explinations of their options. Please not json does not support comments, do not include comments in your settings.json file.
+```json
+{
+    // Enables or disables console and logfile output for the bot or discord. 
+    // If your bot isn't working correctly, change "bot" to true. 
+    // Then reading the debug errors may explain the problem.
+    "logging": {
+        "discord": false,
+        "bot": true
+    },
+    // Allows setting a channel ID to notify the bot owner when it is added to a new server and when a temp channel is created or removed
+    // Used to track if users are abusing the bot
+    "notifications": {
+        "channel_id": null
+    },
+    // Allows editing the visual design of the control message within the text channel of a temp vc
+    "control_message": {
+        "button_labels": true, // Enables text on control buttons
+        "buttons_description_embed": false, // Adds an embed which describes what each button does
+        "use_dropdown_instead_of_buttons": true, // Removes buttons to use a drop down menu instead
+        "state_changeable": false // Whether the user can hide/lock thier channel
+    },
+    // Edit the status of the bot. Accepts variables {server_count} and {member_count}
+    "status": {
+      "text": "Online in {server_count} servers | {member_count} users."
+    }
+}
 ```
 Please make sure you have message, member and activity intents enabled in the Discord Developer Portal for your bot.
 
@@ -81,3 +109,5 @@ Please make sure you have message, member and activity intents enabled in the Di
 6. Server-side settings to:
    1. Set a logs channel
    2. Set a profanity filter
+7. ~~Add simple doc website for hosting TOS and Privacy notice~~ Implemented
+8. ~~Add setting for configuring bot's status~~ Implemented

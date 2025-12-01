@@ -4,11 +4,11 @@ from discord.ui import View, Select, Button, Modal, InputText
 from enum import Enum
 import discord
 from discord.ext import commands
-from pathlib import Path
+import pathlib
 import cogs.voice_logic
 
 
-script_dir = Path(__file__).parent
+script_dir = pathlib.Path(__file__).parent
 settings_path = script_dir / "../settings.json"
 
 # Load settings

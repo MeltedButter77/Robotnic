@@ -40,6 +40,9 @@ default_settings = {
         "buttons_description_embed": False,
         "use_dropdown_instead_of_buttons": True,
         "state_changeable": False
+    },
+    "status": {
+        "text": "Online in {server_count} servers | {member_count} users."
     }
 }
 
