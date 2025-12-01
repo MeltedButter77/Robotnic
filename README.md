@@ -77,8 +77,8 @@ Optionally: Edit the settings.json below is the default settings with explinatio
         "discord": false,
         "bot": true
     },
-    // Allows setting a channel ID to notify the bot owner when it is added to a new server and when a temp channel is created or removed
-    // Used to track if users are abusing the bot
+    // Allows setting a channel ID to notify the bot owner when it is added to a new server and when 
+    // a temp channel is created or removed. This is used to track if users are abusing the bot.
     "notifications": {
         "channel_id": null
     },
