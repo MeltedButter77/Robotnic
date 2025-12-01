@@ -80,14 +80,7 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
                     # await temp_channel.edit(name=new_channel_name)
 
         # Update control message
-        async for control_message in temp_channel.history(limit=3, oldest_first=True):
-            if control_message.author.id == bot.user.id:
-                new_info_embed = cogs.voice_control.ChannelInfoEmbed(bot, temp_channel, title=new_channel_name)
-                if control_message.embeds[0].title != new_info_embed.title:
-                    bot.logger.debug(f"Updating Control Message")
-                    control_message.embeds[0] = new_info_embed
-                    await control_message.edit(embeds=control_message.embeds)
-                break
+        await cogs.voice_control.update_info_embed(bot, temp_channel, title=new_channel_name)
 
     # Run all updates concurrently
     tasks = (update(channel_id) for channel_id in temp_channel_ids)
@@ -197,9 +190,12 @@ class TempChannelRenamer:
 
             # Try to perform the rename
             try:
-                await channel.edit(name=new_name)
-                self.bot.logger.debug(f"[RENAMER] Successfully renamed channel {channel_id} to '{new_name}'.")
-                self.last_rename_time[channel_id] = time.time()
+                if channel.name != new_name:
+                    await channel.edit(name=new_name)
+                    self.bot.logger.debug(f"[RENAMER] Successfully renamed channel {channel_id} to '{new_name}'.")
+                    self.last_rename_time[channel_id] = time.time()
+                else:
+                    self.bot.logger.debug(f"[RENAMER] Channel {channel_id} is already named '{new_name}'.")
 
             except discord.HTTPException as error:
                 if error.status == 429:
