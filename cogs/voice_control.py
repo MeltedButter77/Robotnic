@@ -152,7 +152,7 @@ class ButtonsView(View):
 
     async def send_initial_message(self, channel_name=None):
         embed = discord.Embed(color=discord.Color.green())
-        embed.description = f"This is a [FOSS](<https://wikipedia.org/wiki/Free_and_open-source_software>) project made by [MeltedButter77](<https://github.com/MeltedButter77>).\nYou can support it [here](<https://github.com/sponsors/MeltedButter77>)."
+        embed.description = f"This is a [FOSS](<https://wikipedia.org/wiki/Free_and_open-source_software>) project developed by [MeltedButter77](<https://github.com/MeltedButter77>).\nYou can contribute [here](<https://github.com/MeltedButter77/Robotnic>) or support it [here](<https://github.com/sponsors/MeltedButter77>)."
 
         embeds = [
             embed,
