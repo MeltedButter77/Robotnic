@@ -247,13 +247,24 @@ class ButtonsView(View):
             give_button.label = "Give"
             ban_button.label = "Ban User"
 
+        print("yes1")
+        guild_settings = self.bot.db.get_guild_settings(self.temp_channel.guild.id)
+        enabled_controls = guild_settings["enabled_controls"]
+        print("yes2")
+
         if not use_dropdown_instead_of_buttons:
-            self.add_item(name_button)
-            self.add_item(limit_button)
-            self.add_item(clear_button)
-            self.add_item(delete_button)
-            self.add_item(give_button)
-            self.add_item(ban_button)
+            if "rename" in enabled_controls:
+                self.add_item(name_button)
+            if "limit" in enabled_controls:
+                self.add_item(limit_button)
+            if "clear" in enabled_controls:
+                self.add_item(clear_button)
+            if "ban" in enabled_controls:
+                self.add_item(delete_button)
+            if "give" in enabled_controls:
+                self.add_item(give_button)
+            if "delete" in enabled_controls:
+                self.add_item(ban_button)
 
         if state_changeable:
             self.add_item(public_button)
@@ -273,14 +284,21 @@ class ButtonsView(View):
         if use_dropdown_instead_of_buttons:
             class ActionDropdown(discord.ui.Select):
                 def __init__(select_self):
-                    options = [
-                        discord.SelectOption(value="rename", label="Rename Channel", emoji="🏷️"),
-                        discord.SelectOption(value="limit", label="Edit User Limit", emoji="🚧"),
-                        discord.SelectOption(value="clear", label="Clear Messages", emoji="🧽"),
-                        discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨"),
-                        discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"),
-                        discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️"),
-                    ]
+                    options = []
+
+                    if "rename" in enabled_controls:
+                        options.append(discord.SelectOption(value="rename", label="Rename Channel", emoji="🏷️"))
+                    if "limit" in enabled_controls:
+                        options.append(discord.SelectOption(value="limit", label="Edit User Limit", emoji="🚧"))
+                    if "clear" in enabled_controls:
+                        options.append(discord.SelectOption(value="clear", label="Clear Messages", emoji="🧽"))
+                    if "ban" in enabled_controls:
+                        options.append(discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨"))
+                    if "give" in enabled_controls:
+                        options.append(discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"))
+                    if "delete" in enabled_controls:
+                        options.append(discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️"))
+
 
                     super().__init__(
                         placeholder="Channel Actions…",
