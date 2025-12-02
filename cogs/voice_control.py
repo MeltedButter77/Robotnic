@@ -247,10 +247,8 @@ class ButtonsView(View):
             give_button.label = "Give"
             ban_button.label = "Ban User"
 
-        print("yes1")
         guild_settings = self.bot.db.get_guild_settings(self.temp_channel.guild.id)
         enabled_controls = guild_settings["enabled_controls"]
-        print("yes2")
 
         if not use_dropdown_instead_of_buttons:
             if "rename" in enabled_controls:
