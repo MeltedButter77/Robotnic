@@ -265,6 +265,8 @@ class ButtonsView(View):
                 self.add_item(give_button)
             if "delete" in enabled_controls:
                 self.add_item(ban_button)
+            if state_changeable:
+                self.add_item(banner_button)
 
         if state_changeable:
             self.add_item(public_button)
