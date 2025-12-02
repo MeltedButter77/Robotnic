@@ -35,6 +35,16 @@ class Database:
         """)
         self.connection.commit()
 
+    def add_guild_settings(self, guild_id, default_enabled_controls=None):
+        logs_channel_id = None
+        enabled_controls_json = json.dumps(default_enabled_controls)
+        self.cursor.execute("""
+            INSERT OR REPLACE INTO guild_settings
+            (guild_id, logs_channel_id, enabled_controls)
+            VALUES (?, ?, ?)
+        """, (guild_id, logs_channel_id, enabled_controls_json))
+        self.connection.commit()
+
     def get_guild_settings(self, guild_id):
         self.cursor.execute("""
                             SELECT logs_channel_id, enabled_controls
@@ -44,7 +54,12 @@ class Database:
         row = self.cursor.fetchone()
 
         if row is None:
-            return None
+            # Default settings
+            return {
+                "guild_id": guild_id,
+                "logs_channel_id": None,
+                "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"]
+            }
 
         logs_channel_id, enabled_controls_json = row
         enabled_controls = json.loads(enabled_controls_json) if enabled_controls_json else {}
@@ -67,10 +82,12 @@ class Database:
         if logs_channel_id is not None:
             fields.append("logs_channel_id = ?")
             values.append(logs_channel_id)
+        if logs_channel_id == 0:  # Allows to clear the channel
+            logs_channel_id = None
 
         if enabled_controls is not None:
             fields.append("enabled_controls = ?")
-            values.append(enabled_controls)
+            values.append(json.dumps(enabled_controls))
 
         if not fields:
             # Nothing to update
@@ -80,7 +97,7 @@ class Database:
         values.append(guild_id)
 
         query = f"""
-            UPDATE creator_channels
+            UPDATE guild_settings
             SET {', '.join(fields)}
             WHERE guild_id = ?
         """
