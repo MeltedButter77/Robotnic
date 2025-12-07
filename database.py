@@ -76,7 +76,9 @@ class Database:
         row = self.cursor.fetchone()
 
         if row is None:
-            # Default settings
+            # Add server to db
+            self.add_guild_settings(guild_id, ["rename", "limit", "clear", "ban", "give", "delete"])
+            # return Default settings
             return {
                 "guild_id": guild_id,
                 "logs_channel_id": None,
