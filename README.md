@@ -9,6 +9,9 @@ You can invite the public instance to your own server for free using
 👉 [invite Robotnic](https://discord.com/oauth2/authorize?client_id=853490879753617458)
 or join the support server to test it out 👉 [Support Server](https://discord.gg/rcAREJyMV5).
 
+## Example gif
+![dr-robotnic](https://github.com/user-attachments/assets/c20813de-2453-497d-adc2-e1d23843603d)
+
 ## Features
 1. Dynamic Voice Channel Management
 Automatically creates personal or activity-based voice channels when 
