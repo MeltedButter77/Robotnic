@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,100 @@ class Database:
             )
         """)
         self.connection.commit()
+
+    def add_guild_settings(self, guild_id, default_enabled_controls=None):
+        logs_channel_id = None
+        enabled_controls_json = json.dumps(default_enabled_controls)
+        self.cursor.execute("""
+            INSERT OR REPLACE INTO guild_settings
+            (guild_id, logs_channel_id, enabled_controls)
+            VALUES (?, ?, ?)
+        """, (guild_id, logs_channel_id, enabled_controls_json))
+        self.connection.commit()
+
+    def get_guild_logs_channel_id(self, guild_id):
+        self.cursor.execute("""
+                            SELECT logs_channel_id
+                            FROM guild_settings
+                            WHERE guild_id = ?
+                            """, (guild_id,))
+        row = self.cursor.fetchone()
+
+        if row is None:
+            # Default settings
+            return {
+                "guild_id": guild_id,
+                "logs_channel_id": None,
+            }
+
+        logs_channel_id = row[0]
+
+        return {
+            "guild_id": guild_id,
+            "logs_channel_id": logs_channel_id,
+        }
+
+    def get_guild_settings(self, guild_id):
+        self.cursor.execute("""
+                            SELECT logs_channel_id, enabled_controls
+                            FROM guild_settings
+                            WHERE guild_id = ?
+                            """, (guild_id,))
+        row = self.cursor.fetchone()
+
+        if row is None:
+            # Default settings
+            return {
+                "guild_id": guild_id,
+                "logs_channel_id": None,
+                "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"]
+            }
+
+        logs_channel_id, enabled_controls_json = row
+        enabled_controls = json.loads(enabled_controls_json) if enabled_controls_json else {}
+
+        return {
+            "guild_id": guild_id,
+            "logs_channel_id": logs_channel_id,
+            "enabled_controls": enabled_controls
+        }
+
+    def edit_guild_settings(
+            self,
+            guild_id: int,
+            logs_channel_id: int = None,
+            enabled_controls: str = None,
+    ):
+        fields = []
+        values = []
+
+        if logs_channel_id is not None:
+            fields.append("logs_channel_id = ?")
+            values.append(logs_channel_id)
+        if logs_channel_id == 0:  # Allows to clear the channel
+            logs_channel_id = None
+
+        if enabled_controls is not None:
+            fields.append("enabled_controls = ?")
+            values.append(json.dumps(enabled_controls))
+
+        if not fields:
+            # Nothing to update
+            return False
+
+        # Add the WHERE clause value
+        values.append(guild_id)
+
+        query = f"""
+            UPDATE guild_settings
+            SET {', '.join(fields)}
+            WHERE guild_id = ?
+        """
+
+        self.cursor.execute(query, tuple(values))
+        self.connection.commit()
+
+        return self.cursor.rowcount > 0  # Returns True if a row was updated
 
     def set_owner_id(self, channel_id, owner_id):
         self.cursor.execute("""UPDATE temp_channels SET owner_id = ? WHERE channel_id = ?""", (owner_id, channel_id,))

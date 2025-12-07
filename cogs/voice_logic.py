@@ -28,6 +28,8 @@ class VoiceLogicCog(commands.Cog):
                 await delete_on_leave(member, before, after, self.bot)
 
                 # Update channel names of all temp channels
+                # Technically channel names only need to be updated on activity change and deleting a channel (this), no coroutine needed.
+                # Future optimisation, This should also only update channels in this server
                 temp_channel_ids = self.bot.db.get_temp_channel_ids()
                 await update_channel_name_and_control_msg(self.bot, temp_channel_ids)
 
@@ -248,6 +250,7 @@ async def create_on_join(member, before, after, bot):
     # 3. Create channel & move user
     # 4. Create name
     # 5. Edit channel w correct name & overwrites and disable permission sync
+    # 6. Send logs and notifications messages
 
     # SETTINGS from db
     # Category:
@@ -356,6 +359,11 @@ async def create_on_join(member, before, after, bot):
     except Exception as e:
         bot.logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
         bot.db.remove_temp_channel(new_temp_channel.id)
+
+    # Sends messages in the guild log channel and the bot's notification channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
+    log_channel = bot.get_channel(bot.db.get_guild_logs_channel_id(after.channel.guild.id)["logs_channel_id"])
+    if log_channel:
+        await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id}`)")
 
     if bot.notification_channel:
         await bot.notification_channel.send(

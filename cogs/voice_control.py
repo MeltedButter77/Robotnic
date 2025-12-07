@@ -4,11 +4,11 @@ from discord.ui import View, Select, Button, Modal, InputText
 from enum import Enum
 import discord
 from discord.ext import commands
-from pathlib import Path
+import pathlib
 import cogs.voice_logic
 
 
-script_dir = Path(__file__).parent
+script_dir = pathlib.Path(__file__).parent
 settings_path = script_dir / "../settings.json"
 
 # Load settings
@@ -253,13 +253,24 @@ class ButtonsView(View):
             give_button.label = "Give"
             ban_button.label = "Ban User"
 
+        guild_settings = self.bot.db.get_guild_settings(self.temp_channel.guild.id)
+        enabled_controls = guild_settings["enabled_controls"]
+
         if not use_dropdown_instead_of_buttons:
-            self.add_item(name_button)
-            self.add_item(limit_button)
-            self.add_item(clear_button)
-            self.add_item(delete_button)
-            self.add_item(give_button)
-            self.add_item(ban_button)
+            if "rename" in enabled_controls:
+                self.add_item(name_button)
+            if "limit" in enabled_controls:
+                self.add_item(limit_button)
+            if "clear" in enabled_controls:
+                self.add_item(clear_button)
+            if "ban" in enabled_controls:
+                self.add_item(delete_button)
+            if "give" in enabled_controls:
+                self.add_item(give_button)
+            if "delete" in enabled_controls:
+                self.add_item(ban_button)
+            if state_changeable:
+                self.add_item(banner_button)
 
         if state_changeable:
             self.add_item(public_button)
@@ -279,14 +290,21 @@ class ButtonsView(View):
         if use_dropdown_instead_of_buttons:
             class ActionDropdown(discord.ui.Select):
                 def __init__(select_self):
-                    options = [
-                        discord.SelectOption(value="rename", label="Rename Channel", emoji="🏷️"),
-                        discord.SelectOption(value="limit", label="Edit User Limit", emoji="🚧"),
-                        discord.SelectOption(value="clear", label="Clear Messages", emoji="🧽"),
-                        discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨"),
-                        discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"),
-                        discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️"),
-                    ]
+                    options = []
+
+                    if "rename" in enabled_controls:
+                        options.append(discord.SelectOption(value="rename", label="Rename Channel", emoji="🏷️"))
+                    if "limit" in enabled_controls:
+                        options.append(discord.SelectOption(value="limit", label="Edit User Limit", emoji="🚧"))
+                    if "clear" in enabled_controls:
+                        options.append(discord.SelectOption(value="clear", label="Clear Messages", emoji="🧽"))
+                    if "ban" in enabled_controls:
+                        options.append(discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨"))
+                    if "give" in enabled_controls:
+                        options.append(discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"))
+                    if "delete" in enabled_controls:
+                        options.append(discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️"))
+
 
                     super().__init__(
                         placeholder="Channel Actions…",
@@ -641,6 +659,7 @@ class ChangeNameModal(discord.ui.Modal):
             await update_info_embed(self.bot, self.channel, title=channel_name)
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, True)
         else:
+            # If left blank the channel rename override is reset
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, False)
             temp_channel_ids = self.bot.db.get_temp_channel_ids()
             await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, temp_channel_ids)
@@ -652,6 +671,11 @@ class ChangeNameModal(discord.ui.Modal):
         )
         embed.set_footer(text="This message will disappear in 30 seconds.")
         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=30)
+
+        # Sends messages in the guild log channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
+        log_channel = self.bot.get_channel(self.bot.db.get_guild_logs_channel_id(interaction.guild.id)["logs_channel_id"])
+        if log_channel:
+            await log_channel.send(f"User user `{interaction.user} ({interaction.user.id}`) renamed Temp Channel `{self.channel.name} ({self.channel.id}`) to `{channel_name}`")
 
 
 class UserLimitModal(discord.ui.Modal):
