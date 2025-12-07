@@ -69,7 +69,7 @@ TOKEN=TOKEN_HERE
 python main.py
 ```
 Optionally: Edit the settings.json below is the default settings with explinations of their options. Please not json does not support comments, do not include comments in your settings.json file.
-```json
+```
 {
     // Enables or disables console and logfile output for the bot or discord. 
     // If your bot isn't working correctly, change "bot" to true. 
