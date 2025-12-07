@@ -9,6 +9,8 @@ You can invite the public instance to your own server for free using
 👉 [invite Robotnic](https://discord.com/oauth2/authorize?client_id=853490879753617458)
 or join the support server to test it out 👉 [Support Server](https://discord.gg/rcAREJyMV5).
 
+Alternativly, you can test its functionallity in our 👉 [Example Server](https://discord.gg/xm5aNaW737). It includes pre-configured creator channels that show off the variety of use cases for Robotnic.
+
 ## Example gif
 ![dr-robotnic](https://github.com/user-attachments/assets/c20813de-2453-497d-adc2-e1d23843603d)
 
