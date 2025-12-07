@@ -654,6 +654,7 @@ class ChangeNameModal(discord.ui.Modal):
             await update_info_embed(self.bot, self.channel, title=channel_name)
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, True)
         else:
+            # If left blank the channel rename override is reset
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, False)
             temp_channel_ids = self.bot.db.get_temp_channel_ids()
             await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, temp_channel_ids)
@@ -665,6 +666,11 @@ class ChangeNameModal(discord.ui.Modal):
         )
         embed.set_footer(text="This message will disappear in 30 seconds.")
         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=30)
+
+        # Sends messages in the guild log channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
+        log_channel = self.bot.get_channel(self.bot.db.get_guild_logs_channel_id(interaction.guild.id)["logs_channel_id"])
+        if log_channel:
+            await log_channel.send(f"User user `{interaction.user} ({interaction.user.id}`) renamed Temp Channel `{self.channel.name} ({self.channel.id}`) to `{channel_name}`")
 
 
 class UserLimitModal(discord.ui.Modal):

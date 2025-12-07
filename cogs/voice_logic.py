@@ -28,6 +28,8 @@ class VoiceLogicCog(commands.Cog):
                 await delete_on_leave(member, before, after, self.bot)
 
                 # Update channel names of all temp channels
+                # Technically channel names only need to be updated on activity change and deleting a channel (this), no coroutine needed.
+                # Future optimisation, This should also only update channels in this server
                 temp_channel_ids = self.bot.db.get_temp_channel_ids()
                 await update_channel_name_and_control_msg(self.bot, temp_channel_ids)
 
@@ -58,6 +60,7 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
     start = time.perf_counter()
 
     bot.db.fix_temp_channel_numbers()
+
     async def update(temp_channel_id):
         temp_channel = bot.get_channel(temp_channel_id)
         db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
@@ -112,13 +115,13 @@ class TempChannelRenamer:
         self.bot = bot
 
         # Each channel ID stores its own rename queue
-        self.rename_queues = {}       # channel_id - asyncio.Queue()
+        self.rename_queues = {}  # channel_id - asyncio.Queue()
 
         # Each channel ID stores a worker task that processes renames
-        self.rename_workers = {}      # channel_id - asyncio.Task()
+        self.rename_workers = {}  # channel_id - asyncio.Task()
 
         # Tracks when each channel was last renamed
-        self.last_rename_time = {}    # channel_id - timestamp
+        self.last_rename_time = {}  # channel_id - timestamp
 
         # Minimum safe time between renames (10 minutes)
         self.minimum_interval = 600.0
@@ -277,6 +280,7 @@ async def create_on_join(member, before, after, bot):
     # 3. Create channel & move user
     # 4. Create name
     # 5. Edit channel w correct name & overwrites and disable permission sync
+    # 6. Send logs and notifications messages
 
     # SETTINGS from db
     # Category:
@@ -349,7 +353,8 @@ async def create_on_join(member, before, after, bot):
     else:
         count = max(counts) + 1
 
-    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count, False)
+    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count,
+                            False)
 
     try:
         await member.move_to(new_temp_channel)
@@ -380,6 +385,11 @@ async def create_on_join(member, before, after, bot):
     except Exception as e:
         bot.logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
         bot.db.remove_temp_channel(new_temp_channel.id)
+
+    # Sends messages in the guild log channel and the bot's notification channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
+    log_channel = bot.get_channel(bot.db.get_guild_logs_channel_id(after.channel.guild.id)["logs_channel_id"])
+    if log_channel:
+        await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id}`)")
 
     if bot.notification_channel:
         await bot.notification_channel.send(f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")

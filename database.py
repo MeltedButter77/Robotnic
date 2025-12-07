@@ -45,6 +45,28 @@ class Database:
         """, (guild_id, logs_channel_id, enabled_controls_json))
         self.connection.commit()
 
+    def get_guild_logs_channel_id(self, guild_id):
+        self.cursor.execute("""
+                            SELECT logs_channel_id
+                            FROM guild_settings
+                            WHERE guild_id = ?
+                            """, (guild_id,))
+        row = self.cursor.fetchone()
+
+        if row is None:
+            # Default settings
+            return {
+                "guild_id": guild_id,
+                "logs_channel_id": None,
+            }
+
+        logs_channel_id = row[0]
+
+        return {
+            "guild_id": guild_id,
+            "logs_channel_id": logs_channel_id,
+        }
+
     def get_guild_settings(self, guild_id):
         self.cursor.execute("""
                             SELECT logs_channel_id, enabled_controls
