@@ -43,7 +43,7 @@ async def update_info_embed(bot, channel, title=None, user_limit=None):
         print("Failed to find control message")
         return
     embeds = control_message.embeds
-    embeds[0] = ChannelInfoEmbed(bot, channel, title, user_limit)
+    embeds[1] = ChannelInfoEmbed(bot, channel, title, user_limit)
     await control_message.edit(embeds=embeds)
 
 
@@ -151,7 +151,13 @@ class ButtonsView(View):
         self.create_items()
 
     async def send_initial_message(self, channel_name=None):
-        embeds = [ChannelInfoEmbed(self.bot, self.temp_channel, title=channel_name)]
+        embed = discord.Embed(color=discord.Color.green())
+        embed.description = f"This is a [FOSS](<https://wikipedia.org/wiki/Free_and_open-source_software>) project developed by [MeltedButter77](<https://github.com/MeltedButter77>).\nYou can contribute [here](<https://github.com/MeltedButter77/Robotnic>) or support it [here](<https://github.com/sponsors/MeltedButter77>)."
+
+        embeds = [
+            embed,
+            ChannelInfoEmbed(self.bot, self.temp_channel, title=channel_name)
+        ]
         if buttons_description_embed:
             embeds.append(ControlIconsEmbed())
         self.control_message = await self.temp_channel.send("", embeds=embeds, view=self)
@@ -323,13 +329,12 @@ class ButtonsView(View):
                         await self.ban_button_callback(interaction)
                     elif choice == "delete":
                         await self.delete_button_callback(interaction)
-                    await self.update()  # Clears selected option
+                    await self.update_view()  # Clears selected option
 
             self.add_item(ActionDropdown())
 
-    async def update(self):
+    async def update_view(self):
         embeds = self.control_message.embeds
-        embeds[0] = ChannelInfoEmbed(self.bot, self.control_message.channel)
         self.clear_items()
         self.create_items()
         await self.control_message.edit(view=self, embeds=embeds)
