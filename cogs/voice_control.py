@@ -661,8 +661,7 @@ class ChangeNameModal(discord.ui.Modal):
         else:
             # If left blank the channel rename override is reset
             self.bot.db.set_temp_channel_is_renamed(self.channel.id, False)
-            temp_channel_ids = self.bot.db.get_temp_channel_ids()
-            await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, temp_channel_ids)
+            await cogs.voice_logic.update_channel_name_and_control_msg(self.bot, [self.channel.id])
 
         embed = discord.Embed(
             title="Changes Saved",
