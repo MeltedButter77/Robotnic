@@ -33,20 +33,15 @@ class VoiceLogicCog(commands.Cog):
                 temp_channel_ids = self.bot.db.get_temp_channel_ids()
                 await update_channel_name_and_control_msg(self.bot, temp_channel_ids)
 
-        # Updates temp channel name if child_name_template has activities and a connected user changes activities
-        if after and after.channel:
-            temp_channel = after.channel
+    # If user's activity changes while in a temp vc, update its name
+    @commands.Cog.listener()
+    async def on_presence_update(self, before: discord.Member, after: discord.Member):
+        if not hasattr(after, "channel"):
+            return
+        temp_channel = after.channel
 
-            db_temp_channel_info = self.bot.db.get_temp_channel_info(temp_channel.id)
-            if not db_temp_channel_info:
-                return
-            db_creator_channel_info = self.bot.db.get_creator_channel_info(db_temp_channel_info.creator_id)
-            if db_temp_channel_info is not None and "{activity}" in str(db_creator_channel_info.child_name):
-                new_channel_name = create_temp_channel_name(self.bot, temp_channel)
-                # If the current name is different to the correct name, rename it.
-                if temp_channel.name != new_channel_name:
-                    self.bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name} due to activity change")
-                    await self.bot.renamer.schedule(temp_channel, new_channel_name)
+        self.bot.logger.debug(f"Updating {temp_channel.name} due to activity change")
+        await update_channel_name_and_control_msg(self.bot, [temp_channel.id])
 
 
 def setup(bot):
@@ -66,7 +61,7 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
         db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
         if db_temp_channel_info.is_renamed:
             return
-        if not temp_channel or not db_temp_channel_info.creator_id:
+        if not temp_channel or not db_temp_channel_info.creator_id:  # Filter so only channels in the temp_channels db continue
             return
 
         new_channel_name = None
