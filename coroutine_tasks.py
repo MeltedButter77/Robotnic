@@ -35,6 +35,7 @@ async def update_temp_channel_names(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
         try:
+            bot.logger.debug(f"Updating all temp channel names on schedule")
             temp_channel_ids = bot.db.get_temp_channel_ids()
             await cogs.voice_logic.update_channel_name_and_control_msg(bot, temp_channel_ids)
         except Exception as e:
@@ -46,10 +47,14 @@ async def update_presence(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
         try:
-            server_count = len(bot.guilds)
-            member_count = 0
-            for guild in bot.guilds:
-                member_count += guild.member_count
+            # Create variables if needed
+            server_count = len(bot.guilds)  # Always needed as used in top.gg post
+            if "{member_count}" in status_text:
+                member_count = 0
+                for guild in bot.guilds:
+                    member_count += guild.member_count
+
+            # Formate from settings
             status = status_text.format(**locals())
             await bot.change_presence(activity=discord.Game(status))
             bot.logger.debug(f"Updated presence to \'{status}\'")
