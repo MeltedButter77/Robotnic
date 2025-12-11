@@ -51,9 +51,11 @@ def setup(bot):
 # Updates channel name to match its creator's template.
 # Updates Control message's info embed to reflect true data
 async def update_channel_name_and_control_msg(bot, temp_channel_ids):
-    bot.logger.debug("Updating temp channel names...")
+    bot.logger.debug(f"Updating {len(temp_channel_ids)} temp channel names & control msgs...")
     start = time.perf_counter()
 
+    # Fixes any badly ordered channel count in the db
+    # name update will reflect the db, so we fix it first
     bot.db.fix_temp_channel_numbers()
 
     async def update(temp_channel_id):
