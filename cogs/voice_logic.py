@@ -362,9 +362,8 @@ async def create_on_join(member, before, after, bot):
     if log_channel:
         await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id}`)")
 
-    if bot.notification_channel and bot.notification_settings.get("channel_create", False):
-        await bot.notification_channel.send(
-            f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
+    # Send bot logging message
+    await bot.send_bot_log(type="channel_create", message=f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
 
 
 async def delete_on_leave(member, before, after, bot):
@@ -387,9 +386,7 @@ async def delete_on_leave(member, before, after, bot):
         except Exception as e:
             bot.logger.error(f"Unknown error removing temp channel. {e}")
 
-        if bot.notification_channel and bot.notification_settings.get("channel_remove", False):
-            await bot.notification_channel.send(
-                f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
+        await bot.send_bot_log(type="channel_remove", message=f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
 
     # Clear owner_id in db if owner leaves
     if len(before.channel.members) >= 1:

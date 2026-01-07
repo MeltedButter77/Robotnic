@@ -126,14 +126,16 @@ class Bot(discord.AutoShardedBot):
             self.topgg_client = DBLClient(self, topgg_token)
             self.logger.info(f'Connected TOPGG Client')
 
+    async def send_bot_log(self, type, message, embeds=None):
+        if self.notification_channel and settings["notifications"].get(str(type), False):
+            await self.notification_channel.send(message, embeds=embeds)
+
     async def on_ready(self):
         self.logger.info(f'Logged in as {self.user}')
         await coroutine_tasks.create_tasks(self)
 
         self.notification_channel = self.get_channel(settings["notifications"].get("channel_id", None))
-        self.notification_settings = settings["notifications"]
-        if self.notification_channel and settings["notifications"].get("start", False):
-            await self.notification_channel.send(f"Bot {self.user.mention} started.")
+        await self.send_bot_log(type="start", message=f"Bot {self.user.mention} started.")
 
         await bot.sync_commands()
         self.logger.info(f'Commands synced')
@@ -159,8 +161,7 @@ class Bot(discord.AutoShardedBot):
                     # Edit the message to show the new view
                     await control_message.edit(view=view)
 
-        if self.notification_channel and settings["notifications"].get("stop", False):
-            await self.notification_channel.send(f"Bot {self.user.mention} stopping.")
+        await self.send_bot_log(type="stop", message=f"Bot {self.user.mention} stopping.")
         await super().close()
 
     async def on_guild_join(self, guild):
@@ -193,22 +194,19 @@ class Bot(discord.AutoShardedBot):
                 await channel.send("Thanks for inviting me!", embed=embed, view=view)
                 break
 
-        if self.notification_channel and bot.notification_settings.get("guild_join", False):
-            # Create the embed with the server information
-            embed = discord.Embed(
-                title="Joined a New Server!",
-                description=f"",
-                color=discord.Color.green()
-            )
-            embed.add_field(name="Server Name", value=guild.name, inline=True)
-            embed.add_field(name="Server ID", value=guild.id, inline=True)
-            embed.add_field(name="Owner", value=f"{guild.owner} (ID: {guild.owner_id})", inline=True)
-            embed.add_field(name="Member Count", value=guild.member_count, inline=True)
-            embed.add_field(name="Creation Date", value=guild.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
-            embed.add_field(name="Region/Locale", value=str(guild.preferred_locale), inline=True)
-
-            # Send the information to the notification channel
-            await self.notification_channel.send(embed=embed)
+        # Create the embed with the server information
+        embed = discord.Embed(
+            title="Joined a New Server!",
+            description=f"",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Server Name", value=guild.name, inline=True)
+        embed.add_field(name="Server ID", value=guild.id, inline=True)
+        embed.add_field(name="Owner", value=f"{guild.owner} (ID: {guild.owner_id})", inline=True)
+        embed.add_field(name="Member Count", value=guild.member_count, inline=True)
+        embed.add_field(name="Creation Date", value=guild.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
+        embed.add_field(name="Region/Locale", value=str(guild.preferred_locale), inline=True)
+        await self.send_bot_log(type="guild_join", message=f"", embeds=[embed])
 
     async def on_application_command_error(self, ctx, exception):
         if isinstance(exception.original, discord.Forbidden):
