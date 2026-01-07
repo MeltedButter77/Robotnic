@@ -209,7 +209,7 @@ def create_temp_channel_name(bot, temp_channel, db_temp_channel_info=None, db_cr
         if owner:
             member_name = owner.nick if owner.nick else owner.display_name
         else:
-            member_name = "None"
+            member_name = "Public"
         new_channel_name = new_channel_name.replace("{user}", member_name)
 
     if "{activity}" in str(new_channel_name):
@@ -362,7 +362,7 @@ async def create_on_join(member, before, after, bot):
     if log_channel:
         await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id}`)")
 
-    if bot.notification_channel:
+    if bot.notification_channel and bot.notification_settings.get("channel_create", False):
         await bot.notification_channel.send(
             f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
 
@@ -387,7 +387,7 @@ async def delete_on_leave(member, before, after, bot):
         except Exception as e:
             bot.logger.error(f"Unknown error removing temp channel. {e}")
 
-        if bot.notification_channel:
+        if bot.notification_channel and bot.notification_settings.get("channel_remove", False):
             await bot.notification_channel.send(
                 f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
 

@@ -5,24 +5,11 @@ import asyncio
 import cogs.voice_logic
 
 
-# All functions within this file will:
-# 1. Be called using discord.Bot.loop.create_task() within the main file.
-# 2. Have 2 inputs; bot and logger.
-
-
-script_dir = pathlib.Path(__file__).parent
-settings_path = script_dir / "settings.json"
-
-# Load settings
-with open(settings_path, "r") as f:
-    settings = json.load(f)
-status_text = settings["status"].get("text", "")
-
-
 async def create_tasks(bot):
     tasks = []
     current_module = __import__(__name__)
 
+    # These are the functions in this file that will run periodically in bot.loop
     functions = [update_temp_channel_names, update_presence, clear_empty_temp_channels]
     for func in functions:
         tasks.append(bot.loop.create_task(func(bot)))
@@ -47,6 +34,8 @@ async def update_presence(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
     while not bot.is_closed():  # Run on a schedule
         try:
+            status_text = bot.settings["status"].get("text", "")
+
             # Create variables if needed
             server_count = len(bot.guilds)  # Always needed as used in top.gg post
             if "{member_count}" in status_text:

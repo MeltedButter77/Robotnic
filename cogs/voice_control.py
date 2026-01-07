@@ -1,23 +1,9 @@
 import asyncio
-import json
 from discord.ui import View, Select, Button, Modal, InputText
 from enum import Enum
 import discord
 from discord.ext import commands
-import pathlib
 import cogs.voice_logic
-
-
-script_dir = pathlib.Path(__file__).parent
-settings_path = script_dir / "../settings.json"
-
-# Load settings
-with open(settings_path, "r") as f:
-    settings = json.load(f)
-button_labels = settings["control_message"].get("button_labels", True)
-buttons_description_embed = settings["control_message"].get("buttons_description_embed", False)
-use_dropdown_instead_of_buttons = settings["control_message"].get("use_dropdown_instead_of_buttons", True)
-state_changeable = settings["control_message"].get("state_changeable", False)
 
 
 class VoiceControlCog(commands.Cog):
@@ -48,7 +34,7 @@ async def update_info_embed(bot, channel, title=None, user_limit=None):
 
 
 class ControlIconsEmbed(discord.Embed):
-    def __init__(self):
+    def __init__(self, bot):
         super().__init__(
             title="",
             description="",
@@ -61,7 +47,7 @@ class ControlIconsEmbed(discord.Embed):
         self.add_field(name="🧽 Clear", value="", inline=True)
         self.add_field(name="🔨 Ban", value="", inline=True)
         self.add_field(name="🗑️ Delete", value="", inline=True)
-        if state_changeable:
+        if bot.settings["control_message"].get("state_changeable", False):
             self.add_field(name="🌐 Public", value="", inline=True)
             self.add_field(name="🙈 Hide", value="", inline=True)
             self.add_field(name="🔒 Lock", value="", inline=True)
@@ -108,7 +94,7 @@ class ChannelInfoEmbed(discord.Embed):
         #     region = "🌍 Auto"
         # self.add_field(name="Region", value=f"{region}", inline=True)
 
-        if state_changeable:
+        if bot.settings["control_message"].get("state_changeable", False):
             channel_state_id = temp_channel_info.channel_state
             if channel_state_id == ChannelState.PUBLIC.value:
                 channel_state = "🌐 Public"
@@ -153,13 +139,12 @@ class ButtonsView(View):
     async def send_initial_message(self, channel_name=None):
         embed = discord.Embed(color=discord.Color.green())
         embed.description = f"This is a [FOSS](<https://wikipedia.org/wiki/Free_and_open-source_software>) project developed by [MeltedButter77](<https://github.com/MeltedButter77>).\nYou can contribute [here](<https://github.com/MeltedButter77/Robotnic>) or support it [here](<https://github.com/sponsors/MeltedButter77>)."
-
         embeds = [
             embed,
             ChannelInfoEmbed(self.bot, self.temp_channel, title=channel_name)
         ]
-        if buttons_description_embed:
-            embeds.append(ControlIconsEmbed())
+        if self.bot.settings["control_message"].get("buttons_description_embed", True):
+            embeds.append(ControlIconsEmbed(self.bot))
         self.control_message = await self.temp_channel.send("", embeds=embeds, view=self)
 
     def create_items(self):
@@ -242,7 +227,7 @@ class ButtonsView(View):
             disabled=True
         )
 
-        if button_labels:
+        if self.bot.settings["control_message"].get("button_labels", True):
             lock_button.label = "Lock"
             hide_button.label = "Hide"
             public_button.label = "Public"
@@ -256,7 +241,7 @@ class ButtonsView(View):
         guild_settings = self.bot.db.get_guild_settings(self.temp_channel.guild.id)
         enabled_controls = guild_settings["enabled_controls"]
 
-        if not use_dropdown_instead_of_buttons:
+        if not self.bot.settings["control_message"].get("use_dropdown_instead_of_buttons", True):
             if "rename" in enabled_controls:
                 self.add_item(name_button)
             if "limit" in enabled_controls:
@@ -269,10 +254,10 @@ class ButtonsView(View):
                 self.add_item(give_button)
             if "delete" in enabled_controls:
                 self.add_item(ban_button)
-            if state_changeable:
+            if self.bot.settings["control_message"].get("state_changeable", False):
                 self.add_item(banner_button)
 
-        if state_changeable:
+        if self.bot.settings["control_message"].get("state_changeable", False):
             self.add_item(public_button)
             self.add_item(lock_button)
             self.add_item(hide_button)
@@ -287,7 +272,7 @@ class ButtonsView(View):
         give_button.callback = self.give_button_callback
         ban_button.callback = self.ban_button_callback
 
-        if use_dropdown_instead_of_buttons:
+        if self.bot.settings["control_message"].get("use_dropdown_instead_of_buttons", True):
             class ActionDropdown(discord.ui.Select):
                 def __init__(select_self):
                     options = []

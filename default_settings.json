@@ -1,0 +1,23 @@
+{
+    "logging": {
+        "discord": false,
+        "bot": true
+    },
+    "notifications": {
+        "channel_id": null,
+        "start": true,
+        "stop": true,
+        "guild_join": true,
+        "channel_create": false,
+        "channel_remove": false
+    },
+    "control_message": {
+        "button_labels": true,
+        "buttons_description_embed": false,
+        "use_dropdown_instead_of_buttons": true,
+        "state_changeable": false
+    },
+    "status": {
+        "text": "Online in {server_count} servers | {member_count} users."
+    }
+}
