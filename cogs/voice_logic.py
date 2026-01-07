@@ -30,6 +30,7 @@ class VoiceLogicCog(commands.Cog):
                 # Update channel names of all temp channels
                 # Technically channel names only need to be updated on activity change and deleting a channel (this), no coroutine needed.
                 # Future optimisation, This should also only update channels in this server
+                self.bot.logger.debug(f"Updating all temp channel names because a user left a temp_vc")
                 temp_channel_ids = self.bot.db.get_temp_channel_ids()
                 await update_channel_name_and_control_msg(self.bot, temp_channel_ids)
 
