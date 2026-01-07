@@ -8,6 +8,8 @@ from database import Database
 from pathlib import Path
 from datetime import datetime
 from topgg import DBLClient
+import coroutine_tasks
+from cogs import voice_logic
 
 # Main.py Logic Structure
 # 1. Set Directories
@@ -25,42 +27,24 @@ log_path = script_dir / "logs"
 log_path.mkdir(exist_ok=True)
 env_path = script_dir / ".env"
 settings_path = script_dir / "settings.json"
-
-# Default settings
-default_settings = {
-    "logging": {
-        "discord": False,
-        "bot": False
-    },
-    "notifications": {
-        "channel_id": None
-    },
-    "control_message": {
-        "button_labels": True,
-        "buttons_description_embed": False,
-        "use_dropdown_instead_of_buttons": True,
-        "state_changeable": False
-    },
-    "status": {
-        "text": "Online in {server_count} servers | {member_count} users."
-    }
-}
+default_settings_path = script_dir / "default_settings.json"
 
 # Create settings file if it doesn't exist
 if not os.path.exists(settings_path):
-    with open(settings_path, "w") as f:
-        json.dump(default_settings, f, indent=4)
-    print(f"Created default settings.json at {settings_path}. Edit to change debug settings.")
+    with open("default_settings.json", "r") as src:
+        default_settings = json.load(src)
+    with open(settings_path, "w") as dst:
+        json.dump(default_settings, dst, indent=4)
+    print(
+        f"Created settings.json at {settings_path} from default_settings.json. "
+        "Edit settings.json to change debug settings."
+    )
 
 # Load settings
 with open(settings_path, "r") as f:
     settings = json.load(f)
 discord_debug = settings["logging"].get("discord", False)
 bot_debug = settings["logging"].get("bot", False)
-
-# Import after settings have been made
-import coroutine_tasks
-from cogs import creator_menu, voice_logic
 
 # File handler (shared)
 log_name = datetime.now()
@@ -132,8 +116,10 @@ class Bot(discord.AutoShardedBot):
         self.token = token
         self.logger = logger
         self.db = database
-        self.notification_channel = None
         self.renamer = voice_logic.TempChannelRenamer(self)
+
+        self.settings = settings
+        self.notification_channel = None
 
         self.topgg_client = None
         if topgg_token:
@@ -143,12 +129,14 @@ class Bot(discord.AutoShardedBot):
     async def on_ready(self):
         self.logger.info(f'Logged in as {self.user}')
         await coroutine_tasks.create_tasks(self)
-        await bot.sync_commands()
-        self.logger.info(f'Commands synced')
 
         self.notification_channel = self.get_channel(settings["notifications"].get("channel_id", None))
-        if self.notification_channel:
+        self.notification_settings = settings["notifications"]
+        if self.notification_channel and settings["notifications"].get("start", False):
             await self.notification_channel.send(f"Bot {self.user.mention} started.")
+
+        await bot.sync_commands()
+        self.logger.info(f'Commands synced')
 
     async def close(self):
         self.logger.info(f'Logging out {self.user}')
@@ -171,7 +159,7 @@ class Bot(discord.AutoShardedBot):
                     # Edit the message to show the new view
                     await control_message.edit(view=view)
 
-        if self.notification_channel:
+        if self.notification_channel and settings["notifications"].get("stop", False):
             await self.notification_channel.send(f"Bot {self.user.mention} stopping.")
         await super().close()
 
@@ -205,7 +193,7 @@ class Bot(discord.AutoShardedBot):
                 await channel.send("Thanks for inviting me!", embed=embed, view=view)
                 break
 
-        if self.notification_channel:
+        if self.notification_channel and bot.notification_settings.get("guild_join", False):
             # Create the embed with the server information
             embed = discord.Embed(
                 title="Joined a New Server!",
