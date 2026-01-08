@@ -1,5 +1,3 @@
-from asyncio import wait_for
-
 import discord
 from discord.ui import View, Select, Button, Modal, InputText
 from discord.ext import commands

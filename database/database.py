@@ -1,13 +1,11 @@
 import json
 import sqlite3
-import os
-script_dir = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(script_dir, 'database.db')
+from config.paths import DB_PATH
 
 
 class Database:
-    def __init__(self, db_path=db_path):
-        self.connection = sqlite3.connect(db_path)
+    def __init__(self):
+        self.connection = sqlite3.connect(DB_PATH)
         self.cursor = self.connection.cursor()
         self._ensure_tables()
 
