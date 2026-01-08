@@ -1,38 +1,5 @@
 import discord
 from discord.ui import View, Select, Button, Modal, InputText
-from discord.ext import commands
-
-
-class SettingsMenuCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @discord.slash_command(description="Change Guild Settings")
-    @discord.default_permissions(administrator=True)
-    async def settings(self, ctx):
-        if not ctx.author.guild_permissions.administrator:
-            return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
-
-        view = SettingsView(ctx=ctx, bot=self.bot)
-        message = await ctx.send_response(f"{ctx.author.mention}", embed=MessageEmbed(), view=view)  # , ephemeral=True)
-        view.message = message
-
-
-def setup(bot):
-    bot.add_cog(SettingsMenuCog(bot))
-
-
-class MessageEmbed(discord.Embed):
-    def __init__(self, is_advanced: bool = False):
-        super().__init__(
-            title="Guild (Server) Settings",
-            color=discord.Color.blue()
-        )
-        self.description = f"This menu allows for editing server settings."
-
-        self.add_field(name="1st row Menu", value="Handles which voice controls are avalible to the owner of a temp channel", inline=False)
-        self.add_field(name="2nd row Menu", value="Used to set a logs channel. This allows admins to store who owned channels named what and when. It stores who created a channel and who manually changes its name and to what. Activity based tracking is a wip.", inline=False)
-        self.add_field(name="3srd row Button", value="Clears the logs channel", inline=False)
 
 
 class SettingsView(View):

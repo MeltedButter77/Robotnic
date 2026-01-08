@@ -113,7 +113,7 @@ Please make sure you have message, member and activity intents enabled in the Di
 4. ~~Improve lack of permission handling. Currently, there is a high chance of errors if the bot has insufficient permissions.~~ Vastly Improved
 5. Create a website to advertise and explain the bot's features
 6. Server-side settings to:
-   1. Set a logs channel
+   1. ~~Set a logs channel~~
    2. Set a profanity filter
 7. ~~Add simple doc website for hosting TOS and Privacy notice~~ Implemented
 8. ~~Add setting for configuring bot's status~~ Implemented
