@@ -110,7 +110,7 @@ class ChannelInfoEmbed(discord.Embed):
 async def is_owner(view, interaction):
     if not interaction.user in interaction.channel.members:
         view.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they are not connected to.")
-        await interaction.response.send_message(f"You are not connected to this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
+        await interaction.response.send_message(f"You are not connected to this voice channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
         return False
 
     owner_id = view.bot.db.get_temp_channel_info(interaction.channel.id).owner_id
@@ -363,9 +363,10 @@ class ButtonsView(View):
         await interaction.response.send_modal(modal)
 
     async def clear_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
         if not await is_owner(self, interaction):
             return
+        await interaction.response.defer(ephemeral=True)
+
         excluded_message_ids = []
         if interaction.message:
             excluded_message_ids.append(interaction.message.id)
@@ -394,9 +395,10 @@ class ButtonsView(View):
         await interaction.followup.send(embed=embed, ephemeral=True, delete_after=15)
 
     async def delete_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
         if not await is_owner(self, interaction):
             return
+        await interaction.response.defer(ephemeral=True)
+
         # Ask for confirmation
         embed = discord.Embed(
             title="Channel Deletion Confirmation",
@@ -447,15 +449,17 @@ class ButtonsView(View):
                 pass
 
     async def give_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
         if not await is_owner(self, interaction):
             return
+        await interaction.response.defer(ephemeral=True)
+
         await GiveOwnershipView(self.bot, interaction.channel).send_initial_message(interaction)
 
     async def ban_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
         if not await is_owner(self, interaction):
             return
+        await interaction.response.defer(ephemeral=True)
+
         await BanUserView(self.bot, interaction.channel).send_initial_message(interaction)
 
 
