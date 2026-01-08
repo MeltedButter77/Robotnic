@@ -23,4 +23,3 @@ async def close(bot):
                 await control_message.edit(view=view)
 
     await bot.send_bot_log(type="stop", message=f"Bot {bot.user.mention} stopping.")
-    await super().close()

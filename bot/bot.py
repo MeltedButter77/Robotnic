@@ -57,6 +57,7 @@ class Bot(discord.AutoShardedBot):
 
     async def close(self):
         await close(self)
+        await super().close()
 
     async def on_guild_join(self, guild):
         await on_guild_join(self, guild)
