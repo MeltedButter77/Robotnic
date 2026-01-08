@@ -1,108 +1,25 @@
-import json
 import os
 import sys
 import discord
-import logging
-import dotenv
 from database import Database
-from pathlib import Path
-from datetime import datetime
 from topgg import DBLClient
 import coroutine_tasks
-from cogs import voice_logic
+from manage_vcs.renamer import TempChannelRenamer
+from config.bot_settings import load_settings
+from config.logging import setup_logging
+from config.env import load_tokens
 
 # Main.py Logic Structure
-# 1. Set Directories
-# 2. Retrieve Settings.json
-# 3. Initialize Discord and Bot loggers
-# 4. Retrieve bot token
-# 5. Bot class, handles all bot methods
-# 6. Initialize Bot object and set a database object as an attribute
-# 7. Run bot
+# Retrieve Settings.json
+# Initialize Discord and Bot loggers
+# Retrieve bot token
+# Bot class, handles all bot methods
+# Initialize Bot object and set a database object as an attribute
+# Run bot
 
-
-# Directories
-script_dir = Path(__file__).parent
-log_path = script_dir / "logs"
-log_path.mkdir(exist_ok=True)
-env_path = script_dir / ".env"
-settings_path = script_dir / "settings.json"
-default_settings_path = script_dir / "default_settings.json"
-
-# Create settings file if it doesn't exist
-if not os.path.exists(settings_path):
-    with open("default_settings.json", "r") as src:
-        default_settings = json.load(src)
-    with open(settings_path, "w") as dst:
-        json.dump(default_settings, dst, indent=4)
-    print(
-        f"Created settings.json at {settings_path} from default_settings.json. "
-        "Edit settings.json to change debug settings."
-    )
-
-# Load settings
-with open(settings_path, "r") as f:
-    settings = json.load(f)
-discord_debug = settings["logging"].get("discord", False)
-bot_debug = settings["logging"].get("bot", False)
-
-# File handler (shared)
-log_name = datetime.now()
-log_name = log_name.strftime("%Y-%m-%d-%H-%M-%S")
-file_handler = logging.FileHandler(filename=log_path / f"{log_name}.log", encoding='utf-8', mode='w')
-file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-
-# Console handler (shared)
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s: %(message)s'))
-
-# Pycord library logger
-discord_logger = logging.getLogger('discord')
-discord_logger.setLevel(logging.DEBUG if discord_debug else logging.INFO)
-
-# Bot logger
-logger = logging.getLogger('bot')
-logger.setLevel(logging.DEBUG if bot_debug else logging.INFO)
-
-# Attach handlers to the loggers
-discord_logger.addHandler(file_handler)
-discord_logger.addHandler(console_handler)
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
-
-logger.info("Bot logger initialized")
-discord_logger.info("Discord logger initialized")
-
-# Check if .env exists, if not create a new one
-placeholder = "TOKEN_HERE"
-if not os.path.exists(env_path):
-    with open(env_path, 'w') as f:
-        f.write(f"TOKEN={placeholder}\n")
-    logger.error(
-        "No .env file found, one has been created. "
-        "Please replace 'TOKEN_HERE' with your actual bot token."
-    )
-    sys.exit(1)
-else:
-    logger.debug(
-        "Valid .env file found. "
-    )
-
-# Get Token
-dotenv.load_dotenv()
-client_token = os.getenv("TOKEN")
-topgg_token = os.getenv("TOPGG_TOKEN")
-# Handle placeholder or no token
-if client_token == placeholder or not client_token:
-    logger.error(
-        "No valid TOKEN found in .env. "
-        "Please replace 'TOKEN_HERE' with your actual bot token."
-    )
-    sys.exit(1)
-else:
-    logger.debug(
-        "Token found. "
-    )
+settings = load_settings()
+logger = setup_logging(settings)
+bot_token, topgg_token = load_tokens(logger)
 
 
 # Subclassed discord.Bot allowing for methods to correspond directly with bot triggers
@@ -116,7 +33,7 @@ class Bot(discord.AutoShardedBot):
         self.token = token
         self.logger = logger
         self.db = database
-        self.renamer = voice_logic.TempChannelRenamer(self)
+        self.renamer = TempChannelRenamer(self)
 
         self.settings = settings
         self.notification_channel = None
@@ -226,7 +143,7 @@ class Bot(discord.AutoShardedBot):
             sys.exit(1)
 
 
-bot = Bot(client_token, topgg_token, logger, Database("database.db"))
+bot = Bot(bot_token, topgg_token, logger, Database("database.db"))
 # Load all cogs from /cogs
 for filename in os.listdir("./cogs"):
     if filename.endswith(".py") and not filename.startswith("_"):

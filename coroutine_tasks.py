@@ -1,8 +1,6 @@
-import pathlib
-import json
 import discord
 import asyncio
-import cogs.voice_logic
+from manage_vcs.update_name import update_channel_name_and_control_msg
 
 
 async def create_tasks(bot):
@@ -18,7 +16,7 @@ async def create_tasks(bot):
     return tasks
 
 
-# Technically shouldn't be required as cogs.voice_logic.update_channel_name_and_control_msg is run every time a user leaves a vc
+# Technically shouldn't be required as manage_vcs.update_name.update_channel_name_and_control_msg is run every time a user leaves a vc
 # This is here in case of desync. Hopefully can be removed once the bot is tested properly
 async def update_temp_channel_names(bot):
     await bot.wait_until_ready()  # Ensure the bot is fully connected
@@ -26,7 +24,7 @@ async def update_temp_channel_names(bot):
         try:
             bot.logger.debug(f"Updating all temp channel names on schedule")
             temp_channel_ids = bot.db.get_temp_channel_ids()
-            await cogs.voice_logic.update_channel_name_and_control_msg(bot, temp_channel_ids)
+            await update_channel_name_and_control_msg(bot, temp_channel_ids)
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
         await asyncio.sleep(90)  # 1.5 minutes (90 seconds)
