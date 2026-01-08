@@ -1,5 +1,5 @@
-from manage_vcs.lifecycle import create_on_join, delete_on_leave
-from manage_vcs.update_name import update_channel_name_and_control_msg
+from cogs.manage_vcs.lifecycle import create_on_join, delete_on_leave
+from cogs.manage_vcs.update_name import update_channel_name_and_control_msg
 
 
 async def handle_voice_state_update(bot, member, before, after):

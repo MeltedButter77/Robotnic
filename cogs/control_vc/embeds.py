@@ -1,6 +1,6 @@
 import discord
-from control_vc.enums import ChannelState
-from manage_vcs.create_name import create_temp_channel_name
+from cogs.control_vc.enums import ChannelState
+from cogs.manage_vcs.create_name import create_temp_channel_name
 
 
 class ControlIconsEmbed(discord.Embed):

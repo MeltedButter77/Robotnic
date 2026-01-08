@@ -1,4 +1,4 @@
-from control_vc.embeds import ChannelInfoEmbed
+from cogs.control_vc.embeds import ChannelInfoEmbed
 
 
 async def update_info_embed(bot, channel, title=None, user_limit=None):

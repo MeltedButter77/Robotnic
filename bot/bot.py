@@ -2,7 +2,7 @@ import os
 import sys
 import discord
 from topgg import DBLClient
-from manage_vcs.renamer import TempChannelRenamer
+from cogs.manage_vcs.renamer import TempChannelRenamer
 from bot.events.ready import on_ready
 from bot.events.guild_join import on_guild_join
 from bot.events.errors import on_application_command_error

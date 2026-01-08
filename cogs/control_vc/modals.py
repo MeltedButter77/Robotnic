@@ -1,6 +1,6 @@
 import discord
-from control_vc.embed_updates import update_info_embed
-from manage_vcs.update_name import update_channel_name_and_control_msg
+from cogs.control_vc.embed_updates import update_info_embed
+from cogs.manage_vcs.update_name import update_channel_name_and_control_msg
 
 
 class ChangeNameModal(discord.ui.Modal):

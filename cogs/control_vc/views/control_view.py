@@ -1,12 +1,12 @@
 import asyncio
 import discord
-from discord.ui import View, Select, Button, Modal, InputText
-from control_vc.enums import ChannelState
-from control_vc.embeds import ChannelInfoEmbed, ControlIconsEmbed
-from control_vc.owner import is_owner
-from control_vc.modals import UserLimitModal, ChangeNameModal
-from control_vc.views.give_ownership import GiveOwnershipView
-from control_vc.views.ban_user import BanUserView
+from discord.ui import View
+from cogs.control_vc.enums import ChannelState
+from cogs.control_vc.embeds import ChannelInfoEmbed, ControlIconsEmbed
+from cogs.control_vc.owner import is_owner
+from cogs.control_vc.modals import UserLimitModal, ChangeNameModal
+from cogs.control_vc.views.give_ownership import GiveOwnershipView
+from cogs.control_vc.views.ban_user import BanUserView
 
 
 class ControlView(View):

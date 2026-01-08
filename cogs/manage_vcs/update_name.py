@@ -1,7 +1,7 @@
 import asyncio
 import time
-from control_vc.embed_updates import update_info_embed
-from manage_vcs.create_name import create_temp_channel_name
+from cogs.control_vc.embed_updates import update_info_embed
+from cogs.manage_vcs.create_name import create_temp_channel_name
 
 
 # Updates channel name to match its creator's template.

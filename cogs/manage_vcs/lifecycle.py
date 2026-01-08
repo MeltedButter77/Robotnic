@@ -1,6 +1,6 @@
 import discord
-from control_vc.views.control_view import ControlView
-from manage_vcs.create_name import create_temp_channel_name
+from cogs.control_vc.views.control_view import ControlView
+from cogs.manage_vcs.create_name import create_temp_channel_name
 
 
 async def create_on_join(member, before, after, bot):

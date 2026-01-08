@@ -1,4 +1,4 @@
-from control_vc.embed_updates import update_info_embed
+from cogs.control_vc.embed_updates import update_info_embed
 
 
 async def is_owner(view, interaction):

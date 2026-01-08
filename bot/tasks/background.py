@@ -1,6 +1,6 @@
 import discord
 import asyncio
-from manage_vcs.update_name import update_channel_name_and_control_msg
+from cogs.manage_vcs.update_name import update_channel_name_and_control_msg
 
 
 async def create_tasks(bot):

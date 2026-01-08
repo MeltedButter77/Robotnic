@@ -1,5 +1,5 @@
 import discord
-from control_vc.embed_updates import update_info_embed
+from cogs.control_vc.embed_updates import update_info_embed
 
 
 class GiveOwnershipView(discord.ui.View):
