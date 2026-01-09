@@ -94,4 +94,7 @@ class CreateView(View):
             await self.bot.notification_channel.send(f"Creator Channel was made in `{interaction.guild.name}` by `{interaction.user}`")
 
     async def on_timeout(self):
-        await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")
+        try:
+            await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")
+        except Exception as e:
+            self.bot.logger.error(f"Unable to update CreateView message after timeout, message likely deleted before timeout.")
