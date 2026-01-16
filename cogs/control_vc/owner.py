@@ -11,15 +11,18 @@ async def is_owner(view, interaction):
     for user in interaction.channel.members:
         connected_user_ids.append(user.id)
 
-    # If the owner isn't connected the channel is considered to have no owner so the interacting user is made owner
     owner_id = view.bot.db.get_temp_channel_info(interaction.channel.id).owner_id
+
+    # If owner isn't connected. Make interacting user owner and continue
     if owner_id is None or owner_id not in connected_user_ids:
         view.bot.db.set_owner_id(interaction.channel.id, interaction.user.id)
-        await update_info_embed(view.bot, interaction.channel)
-        return True
+
+    # If owner is connected and isn't interacting user return false
     elif owner_id != interaction.user.id:
         view.bot.logger.debug(f"User ({interaction.user}) interacted with control message that they don't own.")
         await interaction.response.send_message(f"You do not own this temporary channel {interaction.user.mention}!", ephemeral=True, delete_after=15)
         return False
-    else:
-        return True
+
+    # Update embed and return True meaning interacting user is owner
+    await update_info_embed(view.bot, interaction.channel)
+    return True

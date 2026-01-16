@@ -197,7 +197,6 @@ class ControlView(View):
                         await self.ban_button_callback(interaction)
                     elif choice == "delete":
                         await self.delete_button_callback(interaction)
-                    await self.update_view()  # Clears selected option
 
             self.add_item(ActionDropdown())
 

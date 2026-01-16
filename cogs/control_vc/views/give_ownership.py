@@ -1,5 +1,6 @@
 import discord
 from cogs.control_vc.embed_updates import update_info_embed
+from cogs.manage_vcs.update_name import update_channel_name_and_control_msg
 
 
 class GiveOwnershipView(discord.ui.View):
@@ -66,7 +67,7 @@ class GiveOwnershipView(discord.ui.View):
                     )
 
                     self.bot.db.set_owner_id(self.channel.id, selected_member.id)
-                    await update_info_embed(self.bot, self.channel)
+                    await update_channel_name_and_control_msg(self.bot, [self.channel.id])
 
                     embed = discord.Embed(
                         title="Transferred!",
