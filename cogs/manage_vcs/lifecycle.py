@@ -152,10 +152,3 @@ async def delete_on_leave(member, before, after, bot):
             bot.logger.error(f"Unknown error removing temp channel. {e}")
 
         await bot.send_bot_log(type="channel_remove", message=f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")
-
-    # Clear owner_id in db if owner leaves
-    if len(before.channel.members) >= 1:
-        db_temp_channel_info = bot.db.get_temp_channel_info(before.channel.id)
-        if db_temp_channel_info:
-            if member.id == db_temp_channel_info.owner_id:
-                bot.db.set_owner_id(before.channel.id, None)
