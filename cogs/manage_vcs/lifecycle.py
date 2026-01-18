@@ -125,7 +125,7 @@ async def create_on_join(member, before, after, bot):
     # Sends messages in the guild log channel and the bot's notification channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
     log_channel = bot.get_channel(bot.db.get_guild_logs_channel_id(after.channel.guild.id)["logs_channel_id"])
     if log_channel:
-        await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id}`)")
+        await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id})`")
 
     # Send bot logging message
     await bot.send_bot_log(type="channel_create", message=f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")

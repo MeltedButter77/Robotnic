@@ -1,4 +1,7 @@
+import datetime
+import time
 import discord
+import requests
 from cogs.control_vc.embed_updates import update_info_embed
 from cogs.manage_vcs.update_name import update_channel_name_and_control_msg
 
@@ -25,6 +28,40 @@ class ChangeNameModal(discord.ui.Modal):
         if len(channel_name) > 100:
             channel_name = channel_name[:97] + "..."
 
+        log_channel = self.bot.get_channel(self.bot.db.get_guild_logs_channel_id(interaction.guild.id)["logs_channel_id"])
+        profanity_check_setting = self.bot.db.get_guild_profanity_filter(interaction.guild.id)["profanity_filter"]
+        if profanity_check_setting:
+            profanity_check_response = requests.post(
+                "https://vector.profanity.dev",
+                headers={"Content-Type": "application/json"},
+                json={"message": channel_name},
+            )
+            profanity_check = profanity_check_response.json()
+
+            if profanity_check["isProfanity"]:
+                if log_channel:
+                    embed = discord.Embed(
+                        title="Channel Rename Blocked",
+                        description="",
+                        color=discord.Color.red()
+                    )
+                    embed.add_field(name="Channel",
+                                    value=f"`{self.channel.name}` (`{self.channel.id})`",
+                                    inline=False)
+                    embed.add_field(name="User",
+                                    value=f"`{interaction.user.display_name}` (`{interaction.user.display_name}`, `{interaction.user.id}`)",
+                                    inline=False)
+                    embed.add_field(name="New Name (Blocked)",
+                                    value=f"`{channel_name}`",
+                                    inline=False)
+                    embed.add_field(name="Flagged for",
+                                    value=f"`{profanity_check["flaggedFor"]}`",
+                                    inline=False)
+                    embed.timestamp = datetime.datetime.now()
+                    await log_channel.send(f"", embed=embed)
+
+                return await interaction.response.send_message("Sorry, that input was flagged for profanity.", ephemeral=True, delete_after=90)
+
         # If inputted name, schedule update channel and update db
         if self.channel_name.value:
             await self.bot.renamer.schedule(self.channel, channel_name)
@@ -44,9 +81,8 @@ class ChangeNameModal(discord.ui.Modal):
         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=30)
 
         # Sends messages in the guild log channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
-        log_channel = self.bot.get_channel(self.bot.db.get_guild_logs_channel_id(interaction.guild.id)["logs_channel_id"])
         if log_channel:
-            await log_channel.send(f"User user `{interaction.user} ({interaction.user.id}`) renamed Temp Channel `{self.channel.name} ({self.channel.id}`) to `{channel_name}`")
+            await log_channel.send(f"User `{interaction.user} ({interaction.user.id}`) renamed Temp Channel `{self.channel.name} ({self.channel.id}`) to `{channel_name}`")
 
 
 class UserLimitModal(discord.ui.Modal):

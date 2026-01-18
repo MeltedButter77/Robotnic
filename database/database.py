@@ -31,6 +31,14 @@ class Database:
                 child_overwrites INTEGER
             )
         """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS creator_channels (
+                guild_id INTEGER,
+                logs_channel_id INTEGER,
+                profanity_filter INTEGER,
+                enabled_controls TEXT
+            )
+        """)
         self.connection.commit()
 
     def add_guild_settings(self, guild_id, default_enabled_controls=None):
@@ -42,6 +50,28 @@ class Database:
             VALUES (?, ?, ?)
         """, (guild_id, logs_channel_id, enabled_controls_json))
         self.connection.commit()
+
+    def get_guild_profanity_filter(self, guild_id):
+        self.cursor.execute("""
+                            SELECT logs_channel_id
+                            FROM guild_settings
+                            WHERE guild_id = ?
+                            """, (guild_id,))
+        row = self.cursor.fetchone()
+
+        if row is None:
+            # Default settings
+            return {
+                "guild_id": guild_id,
+                "profanity_filter": 1,
+            }
+
+        profanity_filter = bool(row[0])
+
+        return {
+            "guild_id": guild_id,
+            "profanity_filter": profanity_filter,
+        }
 
     def get_guild_logs_channel_id(self, guild_id):
         self.cursor.execute("""
