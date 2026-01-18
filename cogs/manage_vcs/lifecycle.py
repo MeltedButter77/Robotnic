@@ -1,3 +1,5 @@
+import datetime
+
 import discord
 from cogs.control_vc.views.control_view import ControlView
 from cogs.manage_vcs.create_name import create_temp_channel_name
@@ -125,30 +127,64 @@ async def create_on_join(member, before, after, bot):
     # Sends messages in the guild log channel and the bot's notification channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
     log_channel = bot.get_channel(bot.db.get_guild_logs_channel_id(after.channel.guild.id)["logs_channel_id"])
     if log_channel:
-        await log_channel.send(f"New Temp Channel `{new_temp_channel.name} ({new_temp_channel.id})` was made by user `{member} ({member.id})`")
+        embed = discord.Embed(
+            title="TempChannel New",
+            description="",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Channel",
+                        value=f"`{new_temp_channel.name}` (`{new_temp_channel.id}`)",
+                        inline=False)
+        embed.add_field(name="User",
+                        value=f"`{member.display_name}` (`{member.display_name}`, `{member.id}`)",
+                        inline=False)
+        embed.timestamp = datetime.datetime.now()
+        await log_channel.send(f"", embed=embed)
 
     # Send bot logging message
     await bot.send_bot_log(type="channel_create", message=f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
 
 
 async def delete_on_leave(member, before, after, bot):
-    if len(before.channel.members) < 1:
+    old_temp_channel = before.channel
+
+    if len(old_temp_channel.members) < 1:
         bot.logger.debug(f"Left temp channel is empty. Deleting...")
 
         try:
-            await before.channel.delete()
-            bot.db.remove_temp_channel(before.channel.id)
-            bot.logger.debug(f"Deleted {before.channel.name}")
+            await old_temp_channel.delete()
+            bot.db.remove_temp_channel(old_temp_channel.id)
+            bot.logger.debug(f"Deleted {old_temp_channel.name}")
+
         except discord.NotFound as e:
-            bot.db.remove_temp_channel(before.channel.id)
+            bot.db.remove_temp_channel(old_temp_channel.id)
             bot.logger.debug(f"Channel not found removing entry in db, handled. {e}")
+            return
+
         except discord.Forbidden as e:
             bot.logger.debug(
                 f"Permission error removing temp channel, handled by sending a message notifying of lack of perms. {e}")
-            await before.channel.send(f"Sorry {member.mention}, I do not have permission to delete this channel.",
-                                      delete_after=300)
+            await old_temp_channel.send(f"Sorry {member.mention}, I do not have permission to delete this channel.", delete_after=300)
             return
+
         except Exception as e:
             bot.logger.error(f"Unknown error removing temp channel. {e}")
+            return
+
+        log_channel = bot.get_channel(bot.db.get_guild_logs_channel_id(member.guild.id)["logs_channel_id"])
+        if log_channel:
+            embed = discord.Embed(
+                title="TempChannel Removed",
+                description="",
+                color=discord.Color.orange()
+            )
+            embed.add_field(name="Channel",
+                            value=f"`{old_temp_channel.name}` (`{old_temp_channel.id}`)",
+                            inline=False)
+            embed.add_field(name="Last Connected User",
+                            value=f"`{member.display_name}` (`{member.display_name}`, `{member.id}`)",
+                            inline=False)
+            embed.timestamp = datetime.datetime.now()
+            await log_channel.send(f"", embed=embed)
 
         await bot.send_bot_log(type="channel_remove", message=f"Temp Channel was removed in server (`{member.guild.name}`) by user (`{member}`)")

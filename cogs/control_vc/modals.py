@@ -41,7 +41,7 @@ class ChangeNameModal(discord.ui.Modal):
             if profanity_check["isProfanity"]:
                 if log_channel:
                     embed = discord.Embed(
-                        title="Channel Rename Blocked",
+                        title="TempChannel Blocked Rename",
                         description="",
                         color=discord.Color.red()
                     )
@@ -58,6 +58,7 @@ class ChangeNameModal(discord.ui.Modal):
                                     value=f"`{profanity_check["flaggedFor"]}`",
                                     inline=False)
                     embed.timestamp = datetime.datetime.now()
+                    embed.set_footer(text="Toggle with /settings")
                     await log_channel.send(f"", embed=embed)
 
                 return await interaction.response.send_message("Sorry, that input was flagged for profanity.", ephemeral=True, delete_after=90)
@@ -82,7 +83,22 @@ class ChangeNameModal(discord.ui.Modal):
 
         # Sends messages in the guild log channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
         if log_channel:
-            await log_channel.send(f"User `{interaction.user} ({interaction.user.id}`) renamed Temp Channel `{self.channel.name} ({self.channel.id}`) to `{channel_name}`")
+            embed = discord.Embed(
+                title="TempChannel Rename",
+                description="",
+                color=discord.Color.yellow()
+            )
+            embed.add_field(name="Old Channel",
+                            value=f"`{self.channel.name}` (`{self.channel.id}`)",
+                            inline=False)
+            embed.add_field(name="User",
+                            value=f"`{interaction.user.display_name}` (`{interaction.user.display_name}`, `{interaction.user.id}`)",
+                            inline=False)
+            embed.add_field(name="New Name",
+                            value=f"`{channel_name}`",
+                            inline=False)
+            embed.timestamp = datetime.datetime.now()
+            await log_channel.send(f"", embed=embed)
 
 
 class UserLimitModal(discord.ui.Modal):
