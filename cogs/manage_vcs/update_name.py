@@ -32,8 +32,7 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
             if temp_channel.name != new_channel_name:
                 if len(temp_channel.members) > 0:  # If empty it is going to be deleted, ignore
                     bot.logger.debug(f"Renaming {temp_channel.name} to {new_channel_name}")
-                    await bot.renamer.schedule(temp_channel, new_channel_name)
-                    # await temp_channel.edit(name=new_channel_name)
+                    await bot.TempChannelRenamer.schedule(temp_channel, new_channel_name)
 
         # Update control message
         await update_info_embed(bot, temp_channel, title=new_channel_name)

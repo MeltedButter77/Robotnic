@@ -6,6 +6,7 @@
     "notifications": {
         "channel_id": null,
         "start": true,
+        "reconnect": true,
         "stop": true,
         "guild_join": true,
         "channel_create": false,
