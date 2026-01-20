@@ -10,6 +10,7 @@ def setup_logging(settings) -> logging.Logger:
     # File handler (shared)
     log_name = datetime.now()
     log_name = log_name.strftime("%Y-%m-%d-%H-%M-%S")
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler(filename=LOG_DIR / f"{log_name}.log", encoding='utf-8', mode='w')
     file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 
