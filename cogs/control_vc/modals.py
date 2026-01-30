@@ -1,5 +1,4 @@
 import datetime
-import time
 import discord
 import requests
 from cogs.control_vc.embed_updates import update_info_embed

@@ -1,5 +1,5 @@
 # Discord library
-py-cord==2.6.1
+py-cord==2.7.0
 PyNaCl==1.5.0
 
 # Environment variable loader
@@ -7,3 +7,6 @@ python-dotenv>=1.0.0
 
 # Topgg
 topggpy>=1.4.0
+
+# API Checks (profanity filter)
+requests>=2.31
