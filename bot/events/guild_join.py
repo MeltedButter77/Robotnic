@@ -43,4 +43,4 @@ async def on_guild_join(self, guild):
     embed.add_field(name="Member Count", value=guild.member_count, inline=True)
     embed.add_field(name="Creation Date", value=guild.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
     embed.add_field(name="Region/Locale", value=str(guild.preferred_locale), inline=True)
-    await self.BotLogService.send(event="guild_join", message=f"", embeds=[embed])
+    await self.BotLogService.send(event="guild_join", message=f"", embed=embed)
