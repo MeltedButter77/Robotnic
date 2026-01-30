@@ -21,16 +21,14 @@ class Bot(discord.AutoShardedBot):
         self.logger = logger
         self.db = database
         self.settings = settings
+        self.TempChannelRenamer = TempChannelRenamer(self)
 
-        self.notification_channel = self.get_channel(self.settings["notifications"].get("channel_id", None))
-        self.renamer = TempChannelRenamer(self)
+        # Set later in on_ready()
+        self.ready = False
+        self.BotLogService = None
+        self.GuildLogService = None
 
         self.topgg_client = DBLClient(self, topgg_token) if topgg_token else None
-
-    # Sends logs in the discord channel selected in settings.json under "notifications": "channel_id":
-    async def send_bot_log(self, type, message, embeds=None):
-        if self.notification_channel and self.settings["notifications"].get(str(type), False):
-            await self.notification_channel.send(message, embeds=embeds)
 
     # Load all cogs from /cogs
     def _load_cogs(self):
@@ -40,7 +38,8 @@ class Bot(discord.AutoShardedBot):
                 self.logger.debug(f"Loaded cog: {filename}")
 
     def run(self):
-        self._load_cogs()
+        if not self.ready:
+            self._load_cogs()
 
         try:
             super().run(self.token)

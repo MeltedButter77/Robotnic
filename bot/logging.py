@@ -3,7 +3,43 @@ from datetime import datetime
 from config.paths import LOG_DIR
 
 
-def setup_logging(settings) -> logging.Logger:
+# Sends Discord messages to log events for the bot itself
+# Channel stored in settings.json
+class BotLogService:
+    def __init__(self, bot):
+        self.bot = bot
+
+        self.settings = self.bot.settings.get("notifications", {})
+        channel_id = self.settings.get("channel_id")
+        self.channel = self.bot.get_channel(channel_id)
+
+    async def send(self, event: str, message="", embed=None):
+        if not self.channel:
+            return
+
+        # Checks if logging the event is enabled in settings.json
+        if not self.settings.get(event, False):
+            return
+
+        await self.channel.send(message, embed=embed)
+
+
+# Sends Discord messages to log events relevant to a single guild for moderation purposes
+# Channel stored in database
+class GuildLogService:
+    def __init__(self, bot):
+        self.bot = bot
+
+    async def send(self, event: str, guild, message="", embed=None):
+        channel = self.bot.get_channel(self.bot.db.get_guild_logs_channel_id(guild.id)["logs_channel_id"])
+        if not channel:
+            return
+
+        await channel.send(message, embed=embed)
+
+
+# Creates loggers for debug and info for the program itself
+def setup_program_loggers(settings) -> logging.Logger:
     discord_debug = settings["logging"].get("discord", False)
     bot_debug = settings["logging"].get("bot", False)
 
