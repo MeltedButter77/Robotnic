@@ -28,7 +28,7 @@ class ControlView(View):
         if self.bot.settings["control_message"].get("buttons_description_embed", True):
             embeds.append(ControlIconsEmbed(self.bot))
 
-        an = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["mention_owner_bool"]
+        is_mention_owner = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["mention_owner_bool"]
 
         self.control_message = await self.temp_channel.send( embeds=embeds, view=self)
 
