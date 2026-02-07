@@ -86,7 +86,7 @@ class CreatorChannelsRepository:
             FROM creator_channels
             WHERE channel_id = ?
         """, (channel_id,))
-        row = self.cursor.fetchone()
+        row = self.db.cursor.fetchone()
         if row is None:
             return None
 

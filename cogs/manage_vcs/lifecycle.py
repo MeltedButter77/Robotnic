@@ -34,7 +34,7 @@ async def create_on_join(member, before, after, bot):
 
     creator_channel = after.channel
 
-    db_creator_channel_info = bot.db.get_creator_channel_info(creator_channel.id)
+    db_creator_channel_info = bot.repos.creator_channels.get_creator_channel_info(creator_channel.id)
     if db_creator_channel_info.child_category_id != 0:
         category = bot.get_channel(db_creator_channel_info.child_category_id)
     else:
@@ -90,20 +90,20 @@ async def create_on_join(member, before, after, bot):
             embed=embed, delete_after=300)
         return
 
-    counts = bot.db.get_temp_channel_counts(creator_channel.id)
+    counts = bot.repos.temp_channels.get_temp_channel_counts(creator_channel.id)
     if len(counts) < 1:
         count = 1
     else:
         count = max(counts) + 1
 
-    bot.db.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count, False)
+    bot.repos.temp_channels.add_temp_channel(new_temp_channel.guild.id, new_temp_channel.id, creator_channel.id, member.id, 0, count, False)
 
     try:
         await member.move_to(new_temp_channel)
         bot.logger.debug(f"Moved {member} to {new_temp_channel}")
     except Exception as e:
         bot.logger.debug(f"Error creating voice channel, most likely a quick join and leave. Handled. {e}")
-        bot.db.remove_temp_channel(new_temp_channel.id)
+        bot.repos.temp_channels.remove_temp_channel(new_temp_channel.id)
         await new_temp_channel.delete()
         return
 
@@ -126,7 +126,7 @@ async def create_on_join(member, before, after, bot):
         await view.send_initial_message(channel_name=channel_name)
     except Exception as e:
         bot.logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
-        bot.db.remove_temp_channel(new_temp_channel.id)
+        bot.repos.temp_channels.remove_temp_channel(new_temp_channel.id)
 
     # Sends messages in the guild log channel and the bot's notification channel - uses get_guild_logs_channel_id instead of get_guild_settings for read efficiency
     embed = discord.Embed(
@@ -153,11 +153,11 @@ async def delete_on_leave(member, before, after, bot):
 
         try:
             await old_temp_channel.delete()
-            bot.db.remove_temp_channel(old_temp_channel.id)
+            bot.repos.temp_channels.remove_temp_channel(old_temp_channel.id)
             bot.logger.debug(f"Deleted {old_temp_channel.name}")
 
         except discord.NotFound as e:
-            bot.db.remove_temp_channel(old_temp_channel.id)
+            bot.repos.temp_channels.remove_temp_channel(old_temp_channel.id)
             bot.logger.debug(f"Channel not found removing entry in db, handled. {e}")
             return
 

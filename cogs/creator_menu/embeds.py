@@ -25,10 +25,10 @@ class ListCreatorsEmbed(discord.Embed):
         )
 
         # Creates a field for each creator channel
-        creator_channel_ids = bot.db.get_creator_channel_ids(guild_id=guild.id)
+        creator_channel_ids = bot.repos.creator_channels.get_creator_channel_ids(guild_id=guild.id)
         for i, channel_id in enumerate(creator_channel_ids):
             channel = bot.get_channel(channel_id)
-            creator_info = bot.db.get_creator_channel_info(channel_id)
+            creator_info = bot.repos.creator_channels.get_creator_channel_info(channel_id)
 
             if channel:
                 child_name = creator_info.child_name

@@ -12,11 +12,11 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
 
     # Fixes any badly ordered channel count in the db
     # name update will reflect the db, so we fix it first
-    bot.db.fix_temp_channel_numbers()
+    bot.repos.temp_channels.fix_temp_channel_numbers()
 
     async def update(temp_channel_id):
         temp_channel = bot.get_channel(temp_channel_id)
-        db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel_id)
+        db_temp_channel_info = bot.repos.temp_channels.get_temp_channel_info(temp_channel_id)
         if db_temp_channel_info.is_renamed:
             return
         if not temp_channel or not db_temp_channel_info.creator_id:  # Filter so only channels in the temp_channels db continue

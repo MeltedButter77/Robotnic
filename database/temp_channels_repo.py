@@ -22,7 +22,7 @@ class TempChannelsRepository:
             FROM temp_channels
             WHERE channel_id = ?
         """, (channel_id,))
-        row = self.cursor.fetchone()
+        row = self.db.cursor.fetchone()
         if row is None:
             return None
 
@@ -62,7 +62,7 @@ class TempChannelsRepository:
         for creator_id, channels in creators.items():
 
             # Fetch creator channel info
-            creator_info = self.repos.CreatorChannelsRepository.get_creator_channel_info(creator_id)
+            creator_info = self.repos.creator_channels.get_creator_channel_info(creator_id)
             if creator_info is None:
                 # Creator definition missing — cannot process
                 continue

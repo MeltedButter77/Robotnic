@@ -7,9 +7,9 @@ def create_temp_channel_name(bot, temp_channel, db_temp_channel_info=None, db_cr
 
     # Allows db info to be passed in if it was already retrieved for something else. Choice reduces db reads
     if not db_temp_channel_info:
-        db_temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
+        db_temp_channel_info = bot.repos.temp_channels.get_temp_channel_info(temp_channel.id)
     if not db_creator_channel_info:
-        db_creator_channel_info = bot.db.get_creator_channel_info(db_temp_channel_info.creator_id)
+        db_creator_channel_info = bot.repos.creator_channels.get_creator_channel_info(db_temp_channel_info.creator_id)
 
     # Uses guild.get_member rather than bot.get_member to access nicknames
     owner = temp_channel.guild.get_member(db_temp_channel_info.owner_id) if db_temp_channel_info.owner_id else None
