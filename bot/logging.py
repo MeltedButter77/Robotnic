@@ -40,8 +40,8 @@ class GuildLogService:
 
 # Creates loggers for debug and info for the program itself
 def setup_program_loggers(settings) -> logging.Logger:
-    discord_debug = settings["logging"].get("discord", False)
-    bot_debug = settings["logging"].get("bot", False)
+    discord_debug = settings["debug"].get("discord", False)
+    bot_debug = settings["debug"].get("bot", False)
 
     # File handler (shared)
     log_name = datetime.now()
