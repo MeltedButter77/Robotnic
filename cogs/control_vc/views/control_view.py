@@ -15,11 +15,10 @@ class ControlView(View):
         self.bot = bot
         self.temp_channel = temp_channel
         self.control_message = None
-        self.followup_view = None
 
         self.create_items()
 
-    async def send_initial_message(self, channel_name=None):
+    async def send_initial_message(self, owner_member, channel_name=None):
         embed = discord.Embed(color=discord.Color.green())
         embed.description = f"This is a [FOSS](<https://wikipedia.org/wiki/Free_and_open-source_software>) project developed by [MeltedButter77](<https://github.com/MeltedButter77>).\nYou can contribute [here](<https://github.com/MeltedButter77/Robotnic>) or support it [here](<https://github.com/sponsors/MeltedButter77>)."
         embeds = [
@@ -28,7 +27,14 @@ class ControlView(View):
         ]
         if self.bot.settings["control_message"].get("buttons_description_embed", True):
             embeds.append(ControlIconsEmbed(self.bot))
-        self.control_message = await self.temp_channel.send("", embeds=embeds, view=self)
+
+        an = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["mention_owner_bool"]
+
+        self.control_message = await self.temp_channel.send( embeds=embeds, view=self)
+
+        if is_mention_owner:
+            await self.temp_channel.send(f"Hey {owner_member.mention}, this is *your* vc. Use the message above to control it.", delete_after=10)
+
 
     def create_items(self):
         channel_state = self.bot.repos.temp_channels.get_info(self.temp_channel.id).channel_state
@@ -198,13 +204,14 @@ class ControlView(View):
                     elif choice == "delete":
                         await self.delete_button_callback(interaction)
 
+                    await self.update_view()  # Clears selected option of dropdown
+
             self.add_item(ActionDropdown())
 
     async def update_view(self):
-        embeds = self.control_message.embeds
         self.clear_items()
         self.create_items()
-        await self.control_message.edit(view=self, embeds=embeds)
+        await self.control_message.edit(view=self, embeds=self.control_message.embeds)
 
     async def on_timeout(self):
         self.bot.logger.error(f"Control message timed out in {self.control_message.channel.name}")
@@ -252,8 +259,6 @@ class ControlView(View):
         excluded_message_ids = []
         if interaction.message:
             excluded_message_ids.append(interaction.message.id)
-        if self.followup_view and self.followup_view.control_message:
-            excluded_message_ids.append(self.followup_view.control_message.id)
 
         # Fetch messages from the channel
         messages_to_delete = []
