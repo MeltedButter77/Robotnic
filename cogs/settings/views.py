@@ -57,7 +57,7 @@ class ChannelControlsView(View):
         await self.message.edit(view=self, embeds=self.message.embeds)
 
     async def on_timeout(self):
-        await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")
+        await self.message.delete_original_response()
 
 
 class LogEventsView(View):
@@ -107,4 +107,4 @@ class LogEventsView(View):
         await self.message.edit(view=self, embeds=self.message.embeds)
 
     async def on_timeout(self):
-        await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")
+        await self.message.delete_original_response()
