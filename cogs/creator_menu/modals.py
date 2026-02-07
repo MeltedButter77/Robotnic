@@ -18,7 +18,7 @@ class EditModal(Modal):
     async def callback(self, interaction: discord.Interaction):
         errors = []
 
-        db_creator_channel_info = self.view.bot.repos.creator_channels.get_creator_channel_info(self.creator_id)
+        db_creator_channel_info = self.view.bot.repos.creator_channels.get_info(self.creator_id)
 
         # Validate Child name length
         child_name = self.children[0].value.strip() or db_creator_channel_info.child_name
@@ -73,7 +73,7 @@ class EditModal(Modal):
             await self.view.update()
             return
 
-        self.view.bot.repos.creator_channels.edit_creator_channel(
+        self.view.bot.repos.creator_channels.edit(
             channel_id=self.creator_id,
             child_name=child_name,
             user_limit=user_limit,

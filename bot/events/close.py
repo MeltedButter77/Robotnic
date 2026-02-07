@@ -5,7 +5,7 @@ async def close(bot):
     bot.logger.info(f'Logging out {bot.user}')
 
     # Update all control messages with a disabled button saying its expired
-    for temp_channel_id in bot.repos.temp_channels.get_temp_channel_ids():
+    for temp_channel_id in bot.repos.temp_channels.get_ids():
         temp_channel = bot.get_channel(temp_channel_id)
         # Searches first 10 messages for first send by the bot. This will almost always be the creator
         async for control_message in temp_channel.history(limit=10, oldest_first=True):

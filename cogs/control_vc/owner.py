@@ -11,7 +11,7 @@ async def is_owner(view, interaction):
     for user in interaction.channel.members:
         connected_user_ids.append(user.id)
 
-    owner_id = view.bot.repos.temp_channels.get_temp_channel_info(interaction.channel.id).owner_id
+    owner_id = view.bot.repos.temp_channels.get_info(interaction.channel.id).owner_id
 
     # If owner isn't connected. Make interacting user owner and continue
     if owner_id is None or owner_id not in connected_user_ids:

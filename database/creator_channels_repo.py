@@ -1,10 +1,10 @@
 
-class CreatorChannelsRepository:
+class CreatorChannelsRepository:  # bot.repos.creator_channels
     def __init__(self, db, repos):
         self.db = db
         self.repos = repos
 
-    def get_creator_channel_ids(self, guild_id: int = None, child_category_id: int = None):
+    def get_ids(self, guild_id: int = None, child_category_id: int = None):
         """
         Returns a list of channel_id values from creator_channels.
         Optional filters:
@@ -29,7 +29,7 @@ class CreatorChannelsRepository:
         rows = self.db.cursor.fetchall()
         return [row[0] for row in rows]
 
-    def edit_creator_channel(
+    def edit(
             self,
             channel_id: int,
             child_name: str = None,
@@ -80,7 +80,7 @@ class CreatorChannelsRepository:
 
         return self.db.cursor.rowcount > 0  # Returns True if a row was updated
 
-    def get_creator_channel_info(self, channel_id):
+    def get_info(self, channel_id):
         self.db.cursor.execute("""
             SELECT guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites
             FROM creator_channels
@@ -101,7 +101,7 @@ class CreatorChannelsRepository:
         return CreatorInfo(*row)
 
 
-    def add_creator_channel(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
+    def add(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
         """
         Insert or replace a creator channel record into creator_channels.
         """
@@ -113,7 +113,7 @@ class CreatorChannelsRepository:
         self.db.connection.commit()
 
 
-    def remove_creator_channel(self, channel_id):
+    def remove(self, channel_id):
         """
         Remove a temporary channel record by its channel_id.
         """

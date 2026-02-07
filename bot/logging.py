@@ -31,7 +31,7 @@ class GuildLogService:
         self.bot = bot
 
     async def send(self, event: str, guild, message="", embed=None):
-        channel = self.bot.get_channel(self.bot.repos.guild_settings.get_guild_logs_channel_id(guild.id)["logs_channel_id"])
+        channel = self.bot.get_channel(self.bot.repos.guild_settings.get_logs_channel_id(guild.id)["logs_channel_id"])
         if not channel:
             return
 

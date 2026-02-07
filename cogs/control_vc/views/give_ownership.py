@@ -15,7 +15,7 @@ class GiveOwnershipView(discord.ui.View):
                 self.bot = bot
                 self.channel = channel
 
-                owner_id = self.bot.repos.temp_channels.get_temp_channel_info(channel.id).owner_id
+                owner_id = self.bot.repos.temp_channels.get_info(channel.id).owner_id
 
                 options = []
                 options.append(

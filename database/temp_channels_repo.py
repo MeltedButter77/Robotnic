@@ -1,5 +1,5 @@
 
-class TempChannelsRepository:
+class TempChannelsRepository:  # bot.repos.temp_channels
     def __init__(self, db, repos):
         self.db = db
         self.repos = repos
@@ -8,7 +8,7 @@ class TempChannelsRepository:
         self.db.cursor.execute("""UPDATE temp_channels SET owner_id = ? WHERE channel_id = ?""", (owner_id, channel_id,))
         self.db.connection.commit()
 
-    def set_temp_channel_is_renamed(self, channel_id, bool):
+    def set_is_renamed(self, channel_id, bool):
         if bool:
             is_renamed = 1
         else:
@@ -16,7 +16,7 @@ class TempChannelsRepository:
         self.db.cursor.execute("""UPDATE temp_channels SET is_renamed = ? WHERE channel_id = ?""", (is_renamed, channel_id,))
         self.db.connection.commit()
 
-    def get_temp_channel_info(self, channel_id):
+    def get_info(self, channel_id):
         self.db.cursor.execute("""
             SELECT guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed
             FROM temp_channels
@@ -37,7 +37,7 @@ class TempChannelsRepository:
                 self.is_renamed = is_renamed
         return CreatorInfo(*row)
 
-    def fix_temp_channel_numbers(self):
+    def fix_count(self):
         """
         Ensures all temp channels for each creator have correct ascending numbering:
         - If a creator has only one temp channel → number becomes 1.
@@ -62,7 +62,7 @@ class TempChannelsRepository:
         for creator_id, channels in creators.items():
 
             # Fetch creator channel info
-            creator_info = self.repos.creator_channels.get_creator_channel_info(creator_id)
+            creator_info = self.repos.creator_channels.get_info(creator_id)
             if creator_info is None:
                 # Creator definition missing — cannot process
                 continue
@@ -105,7 +105,7 @@ class TempChannelsRepository:
             # Save all updates
             self.db.connection.commit()
 
-    def remove_temp_channel(self, channel_id):
+    def remove(self, channel_id):
         """
         Remove a temporary channel record by its channel_id.
         """
@@ -115,7 +115,7 @@ class TempChannelsRepository:
         )
         self.db.connection.commit()
 
-    def add_temp_channel(self, guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed):
+    def add(self, guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed):
         """
         Insert or replace a temporary channel record.
         """
@@ -126,7 +126,7 @@ class TempChannelsRepository:
             """, (guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed))
         self.db.connection.commit()
 
-    def get_temp_channel_ids(self):
+    def get_ids(self):
         """
         Returns a list of all channel_id values from temp_channels.
         """
@@ -134,7 +134,7 @@ class TempChannelsRepository:
         rows = self.db.cursor.fetchall()
         return [row[0] for row in rows]
 
-    def get_temp_channel_counts(self, creator_id):
+    def get_counts(self, creator_id):
         """
         Returns a list of all number values from all temp channels of a creator.
         """

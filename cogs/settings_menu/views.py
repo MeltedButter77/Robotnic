@@ -21,7 +21,7 @@ class SettingsView(View):
             self.bot.logger.error("No guild obj to create items for SettingsView")
             return
 
-        guild_settings = self.bot.repos.guild_settings.get_guild_settings(guild.id)
+        guild_settings = self.bot.repos.guild_settings.get(guild.id)
         enabled_controls = guild_settings["enabled_controls"]
 
         # Dropdown
@@ -63,7 +63,7 @@ class SettingsView(View):
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
         channel_id = interaction.data["values"][0]
-        self.bot.repos.guild_settings.edit_guild_settings(interaction.guild_id, logs_channel_id=channel_id)
+        self.bot.repos.guild_settings.edit(interaction.guild_id, logs_channel_id=channel_id)
         channel = self.message.guild.get_channel(int(channel_id))
 
         await self.update()
@@ -73,12 +73,12 @@ class SettingsView(View):
         if interaction.user.id != self.author.id:
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
         enabled_controls = interaction.data["values"]
-        self.bot.repos.guild_settings.edit_guild_settings(interaction.guild_id, enabled_controls=enabled_controls)
+        self.bot.repos.guild_settings.edit(interaction.guild_id, enabled_controls=enabled_controls)
         await self.update()
         return await interaction.response.send_message(f"Options Saved!", ephemeral=True, delete_after=5)
 
     async def remove_logs_channel_button_callback(self, interaction):
-        self.bot.repos.guild_settings.edit_guild_settings(interaction.guild_id, logs_channel_id=0)
+        self.bot.repos.guild_settings.edit(interaction.guild_id, logs_channel_id=0)
         await self.update()
         await interaction.response.send_message("Cleared logs channel!", ephemeral=True, delete_after=5)
 

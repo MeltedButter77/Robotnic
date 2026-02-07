@@ -1,12 +1,12 @@
 import json
 
 
-class GuildSettingsRepository:
+class GuildSettingsRepository:  # bot.repos.guild_settings
     def __init__(self, db, repos):
         self.db = db
         self.repos = repos
 
-    def get_guild_settings(self, guild_id):
+    def get(self, guild_id):
         self.db.cursor.execute("""
                             SELECT logs_channel_id, enabled_controls
                             FROM guild_settings
@@ -16,7 +16,7 @@ class GuildSettingsRepository:
 
         if row is None:
             # Add server to db
-            self.add_guild_settings(guild_id, ["rename", "limit", "clear", "ban", "give", "delete"])
+            self.add(guild_id, ["rename", "limit", "clear", "ban", "give", "delete"])
             # return Default settings
             return {
                 "guild_id": guild_id,
@@ -33,7 +33,7 @@ class GuildSettingsRepository:
             "enabled_controls": enabled_controls
         }
 
-    def edit_guild_settings(self, guild_id: int, logs_channel_id: int = None, enabled_controls: str = None):
+    def edit(self, guild_id: int, logs_channel_id: int = None, enabled_controls: str = None):
         fields = []
         values = []
 
@@ -65,7 +65,7 @@ class GuildSettingsRepository:
 
         return self.db.cursor.rowcount > 0  # Returns True if a row was updated
 
-    def get_guild_logs_channel_id(self, guild_id):
+    def get_logs_channel_id(self, guild_id):
         self.db.cursor.execute("""
                             SELECT logs_channel_id
                             FROM guild_settings
@@ -87,7 +87,7 @@ class GuildSettingsRepository:
             "logs_channel_id": logs_channel_id,
         }
 
-    def get_guild_profanity_filter(self, guild_id):
+    def get_profanity_filter(self, guild_id):
         self.db.cursor.execute("""
                             SELECT logs_channel_id
                             FROM guild_settings
@@ -109,7 +109,7 @@ class GuildSettingsRepository:
             "profanity_filter": profanity_filter,
         }
 
-    def add_guild_settings(self, guild_id, default_enabled_controls=None):
+    def add(self, guild_id, default_enabled_controls=None):
         logs_channel_id = None
         enabled_controls_json = json.dumps(default_enabled_controls)
         self.db.cursor.execute("""
