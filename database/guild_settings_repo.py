@@ -1,5 +1,14 @@
 import json
 
+defaults = {
+    "guild_id": None,
+    "logs_channel_id": None,
+    "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"],
+    "mention_owner_bool": 0,
+    "profanity_filter": "alert",
+    "enabled_log_events": ["channel_create", "channel_rename", "channel_remove ", "profanity_block"]
+}
+
 
 class GuildSettingsRepository:  # bot.repos.guild_settings
     def __init__(self, db, repos):
@@ -8,44 +17,80 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
 
     def get(self, guild_id):
         self.db.cursor.execute("""
-                            SELECT logs_channel_id, enabled_controls
+                            SELECT logs_channel_id, enabled_controls, mention_owner_bool, profanity_filter, enabled_log_events
                             FROM guild_settings
                             WHERE guild_id = ?
                             """, (guild_id,))
         row = self.db.cursor.fetchone()
 
         if row is None:
-            # Add server to db
-            self.add(guild_id, ["rename", "limit", "clear", "ban", "give", "delete"])
-            # return Default settings
-            return {
-                "guild_id": guild_id,
-                "logs_channel_id": None,
-                "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"]
-            }
+            # return Default settings, keys matching database
+            defaults["guild_id"] = guild_id
+            return defaults
 
-        logs_channel_id, enabled_controls_json = row
+        (
+            logs_channel_id,
+            enabled_controls_json,
+            mention_owner_bool,
+            profanity_filter,
+            enabled_log_events_json
+        ) = row
+
         enabled_controls = json.loads(enabled_controls_json) if enabled_controls_json else {}
+        enabled_log_events = json.loads(enabled_log_events_json) if enabled_log_events_json else {}
 
         return {
             "guild_id": guild_id,
             "logs_channel_id": logs_channel_id,
-            "enabled_controls": enabled_controls
+            "enabled_controls": enabled_controls,
+            "mention_owner_bool": bool(mention_owner_bool),
+            "profanity_filter": profanity_filter,
+            "enabled_log_events": enabled_log_events
         }
 
-    def edit(self, guild_id: int, logs_channel_id: int = None, enabled_controls: str = None):
+    def edit(
+            self,
+            guild_id: int,
+            logs_channel_id: int = None,
+            enabled_controls: str = None,
+            mention_owner: bool = None,
+            profanity_filter: str = None,
+            enabled_log_events: str = None,
+        ):
+        # Check if the server has an entry
+        self.db.cursor.execute("""
+                               SELECT logs_channel_id
+                               FROM guild_settings
+                               WHERE guild_id = ?
+                               """, (guild_id,))
+        row = self.db.cursor.fetchone()
+        if not row:
+            self.add(
+                guild_id=guild_id
+            )
+
         fields = []
         values = []
 
         if logs_channel_id is not None:
             fields.append("logs_channel_id = ?")
             values.append(logs_channel_id)
-        if logs_channel_id == 0:  # Allows to clear the channel
-            logs_channel_id = None
 
         if enabled_controls is not None:
             fields.append("enabled_controls = ?")
             values.append(json.dumps(enabled_controls))
+
+        if mention_owner is not None:
+            fields.append("mention_owner_bool = ?")
+            values.append(1 if mention_owner else 0)
+
+        if profanity_filter is not None:
+            fields.append("profanity_filter = ?")
+            values.append(None if profanity_filter == "off" else profanity_filter)
+
+        if enabled_log_events is not None:
+            fields.append("enabled_log_events = ?")
+            values.append(json.dumps(enabled_log_events))
 
         if not fields:
             # Nothing to update
@@ -109,12 +154,16 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
             "profanity_filter": profanity_filter,
         }
 
-    def add(self, guild_id, default_enabled_controls=None):
-        logs_channel_id = None
-        enabled_controls_json = json.dumps(default_enabled_controls)
+    def add(self, guild_id):
+        logs_channel_id = defaults["logs_channel_id"]
+        enabled_controls_json = json.dumps(defaults["enabled_controls"])
+        mention_owner_bool = defaults["mention_owner_bool"]
+        profanity_filter = defaults["profanity_filter"]
+        enabled_log_events_json = json.dumps(defaults["enabled_log_events"])
+
         self.db.cursor.execute("""
             INSERT OR REPLACE INTO guild_settings
-            (guild_id, logs_channel_id, enabled_controls)
-            VALUES (?, ?, ?)
-        """, (guild_id, logs_channel_id, enabled_controls_json))
+            (guild_id, logs_channel_id, enabled_controls, mention_owner_bool, profanity_filter, enabled_log_events)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (guild_id, logs_channel_id, enabled_controls_json, bool(mention_owner_bool), profanity_filter, enabled_log_events_json))
         self.db.connection.commit()
