@@ -31,8 +31,13 @@ class GuildLogService:
         self.bot = bot
 
     async def send(self, event: str, guild, message="", embed=None):
-        channel = self.bot.get_channel(self.bot.repos.guild_settings.get_logs_channel_id(guild.id)["logs_channel_id"])
+        settings = self.bot.repos.guild_settings.get(guild.id)
+        channel = self.bot.get_channel(settings["logs_channel_id"])
         if not channel:
+            return
+
+        # Checks if logging the event is enabled in database.db
+        if not event in settings["enabled_log_events"]:
             return
 
         await channel.send(message, embed=embed)
