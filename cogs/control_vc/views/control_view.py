@@ -31,7 +31,7 @@ class ControlView(View):
         self.control_message = await self.temp_channel.send("", embeds=embeds, view=self)
 
     def create_items(self):
-        channel_state = self.bot.db.get_temp_channel_info(self.temp_channel.id).channel_state
+        channel_state = self.bot.repos.temp_channels.get_info(self.temp_channel.id).channel_state
 
         state_row = 3
 
@@ -121,7 +121,7 @@ class ControlView(View):
             give_button.label = "Give"
             ban_button.label = "Ban User"
 
-        guild_settings = self.bot.db.get_guild_settings(self.temp_channel.guild.id)
+        guild_settings = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)
         enabled_controls = guild_settings["enabled_controls"]
 
         if not self.bot.settings["control_message"].get("use_dropdown_instead_of_buttons", True):
@@ -316,7 +316,7 @@ class ControlView(View):
             except Exception as e:
                 self.bot.logger.error(f"Unknown error removing temp channel, handled. {e}")
 
-            self.bot.db.remove_temp_channel(interaction.channel.id)
+            self.bot.repos.temp_channels.remove(interaction.channel.id)
         except asyncio.TimeoutError:
             try:
                 # If the user does not respond in time, send a timeout message

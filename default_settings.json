@@ -1,5 +1,5 @@
 {
-    "logging": {
+    "debug": {
         "discord": false,
         "bot": true
     },

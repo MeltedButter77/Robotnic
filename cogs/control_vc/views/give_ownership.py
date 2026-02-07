@@ -15,7 +15,7 @@ class GiveOwnershipView(discord.ui.View):
                 self.bot = bot
                 self.channel = channel
 
-                owner_id = self.bot.db.get_temp_channel_info(channel.id).owner_id
+                owner_id = self.bot.repos.temp_channels.get_info(channel.id).owner_id
 
                 options = []
                 options.append(
@@ -53,7 +53,7 @@ class GiveOwnershipView(discord.ui.View):
                     embed.set_footer(text="This message will disappear in 20 seconds.")
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=20)
 
-                    self.bot.db.set_owner_id(self.channel.id, None)
+                    self.bot.repos.temp_channels.set_owner_id(self.channel.id, None)
 
                     await update_info_embed(self.bot, self.channel)
 
@@ -66,7 +66,7 @@ class GiveOwnershipView(discord.ui.View):
                         **owner_perms
                     )
 
-                    self.bot.db.set_owner_id(self.channel.id, selected_member.id)
+                    self.bot.repos.temp_channels.set_owner_id(self.channel.id, selected_member.id)
                     await update_channel_name_and_control_msg(self.bot, [self.channel.id])
 
                     embed = discord.Embed(

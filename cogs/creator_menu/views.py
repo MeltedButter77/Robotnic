@@ -27,7 +27,7 @@ class CreateView(View):
 
         # Dropdown (own row)
         options = []
-        creator_channel_ids = self.bot.db.get_creator_channel_ids(guild_id=guild.id)
+        creator_channel_ids = self.bot.repos.creator_channels.get_ids(guild_id=guild.id)
         for i, channel_id in enumerate(creator_channel_ids):
             channel = self.bot.get_channel(channel_id)
             if channel:
@@ -77,7 +77,7 @@ class CreateView(View):
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
         new_creator_channel = await interaction.guild.create_voice_channel("➕ Create Channel")
-        self.bot.db.add_creator_channel(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s Room", 0, 0, 1)
+        self.bot.repos.creator_channels.add(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s Room", 0, 0, 1)
 
         embeds = [discord.Embed(), discord.Embed()]
         embeds[0].title = f"Created {new_creator_channel.mention}! Join to see how it works."

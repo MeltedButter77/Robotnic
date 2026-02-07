@@ -7,10 +7,12 @@ from bot.events.ready import on_ready
 from bot.events.guild_join import on_guild_join
 from bot.events.errors import on_application_command_error
 from bot.events.close import close
+from database.database import Database
+from database.repositories import Repositories
 
 
 class Bot(discord.AutoShardedBot):
-    def __init__(self, token, topgg_token, logger, database, settings):
+    def __init__(self, token, topgg_token, logger, settings):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.presences = True
@@ -19,8 +21,10 @@ class Bot(discord.AutoShardedBot):
 
         self.token = token
         self.logger = logger
-        self.db = database
         self.settings = settings
+
+        self.db = Database()
+        self.repos = Repositories(self.db)
         self.TempChannelRenamer = TempChannelRenamer(self)
 
         # Set later in on_ready()

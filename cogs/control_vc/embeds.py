@@ -29,7 +29,7 @@ class ChannelInfoEmbed(discord.Embed):
             color=discord.Color.blue()
         )
 
-        temp_channel_info = bot.db.get_temp_channel_info(temp_channel.id)
+        temp_channel_info = bot.repos.temp_channels.get_info(temp_channel.id)
 
         # title input incase it was just changed and propagated to channel yet
         self.title = title

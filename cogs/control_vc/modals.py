@@ -27,7 +27,7 @@ class ChangeNameModal(discord.ui.Modal):
         if len(channel_name) > 100:
             channel_name = channel_name[:97] + "..."
 
-        profanity_check_setting = self.bot.db.get_guild_profanity_filter(interaction.guild.id)["profanity_filter"]
+        profanity_check_setting = self.bot.repos.guild_settings.get_profanity_filter(interaction.guild.id)["profanity_filter"]
         if profanity_check_setting:
             profanity_check_response = requests.post(
                 "https://vector.profanity.dev",
@@ -64,10 +64,10 @@ class ChangeNameModal(discord.ui.Modal):
         if self.channel_name.value:
             await self.bot.TempChannelRenamer.schedule(self.channel, channel_name)
             await update_info_embed(self.bot, self.channel, title=channel_name)
-            self.bot.db.set_temp_channel_is_renamed(self.channel.id, True)
+            self.bot.repos.temp_channels.set_is_renamed(self.channel.id, True)
         else:
             # If left blank the channel rename override is reset
-            self.bot.db.set_temp_channel_is_renamed(self.channel.id, False)
+            self.bot.repos.temp_channels.set_is_renamed(self.channel.id, False)
             await update_channel_name_and_control_msg(self.bot, [self.channel.id])
 
         embed = discord.Embed(
