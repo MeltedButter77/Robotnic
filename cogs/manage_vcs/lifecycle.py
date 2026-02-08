@@ -123,7 +123,9 @@ async def create_on_join(member, before, after, bot):
 
         # Send control message in channel chat
         view = ControlView(bot, new_temp_channel)
+        print("good1")
         await view.send_initial_message(member, channel_name=channel_name)
+        print("good2")
     except Exception as e:
         bot.logger.debug(f"Error finalizing creation of voice channel, handled. {e}")
         bot.repos.temp_channels.remove(new_temp_channel.id)

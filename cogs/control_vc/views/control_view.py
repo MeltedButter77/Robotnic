@@ -25,20 +25,24 @@ class ControlView(View):
             embed,
             ChannelInfoEmbed(self.bot, self.temp_channel, title=channel_name)
         ]
-        if self.bot.settings["control_message"].get("buttons_description_embed", True):
-            embeds.append(ControlIconsEmbed(self.bot))
+        print("1")
+        if "description_embed" in self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["control_options"]:
+            print("2")
+            embeds.append(ControlIconsEmbed(self.bot, self.temp_channel))
+            print("3")
 
         is_mention_owner = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["mention_owner_bool"]
 
-        self.control_message = await self.temp_channel.send( embeds=embeds, view=self)
+        self.control_message = await self.temp_channel.send(embeds=embeds, view=self)
 
         if is_mention_owner:
             await self.temp_channel.send(f"Hey {owner_member.mention}, this is *your* vc. Use the message above to control it.", delete_after=10)
-
+        print("111")
 
     def create_items(self):
-        channel_state = self.bot.repos.temp_channels.get_info(self.temp_channel.id).channel_state
+        control_options = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["control_options"]
 
+        channel_state = self.bot.repos.temp_channels.get_info(self.temp_channel.id).channel_state
         state_row = 3
 
         # Define buttons and their callbacks
@@ -116,7 +120,7 @@ class ControlView(View):
             disabled=True
         )
 
-        if self.bot.settings["control_message"].get("button_labels", True):
+        if "labels" in control_options:
             lock_button.label = "Lock"
             hide_button.label = "Hide"
             public_button.label = "Public"
@@ -130,7 +134,7 @@ class ControlView(View):
         guild_settings = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)
         enabled_controls = guild_settings["enabled_controls"]
 
-        if not self.bot.settings["control_message"].get("use_dropdown_instead_of_buttons", True):
+        if "buttons" in control_options:
             if "rename" in enabled_controls:
                 self.add_item(name_button)
             if "limit" in enabled_controls:
@@ -143,10 +147,10 @@ class ControlView(View):
                 self.add_item(give_button)
             if "delete" in enabled_controls:
                 self.add_item(ban_button)
-            if self.bot.settings["control_message"].get("state_changeable", False):
+            if "state_changeable" in control_options:
                 self.add_item(banner_button)
 
-        if self.bot.settings["control_message"].get("state_changeable", False):
+        if "state_changeable" in control_options:
             self.add_item(public_button)
             self.add_item(lock_button)
             self.add_item(hide_button)
@@ -161,7 +165,7 @@ class ControlView(View):
         give_button.callback = self.give_button_callback
         ban_button.callback = self.ban_button_callback
 
-        if self.bot.settings["control_message"].get("use_dropdown_instead_of_buttons", True):
+        if "dropdown" in control_options:
             class ActionDropdown(discord.ui.Select):
                 def __init__(select_self):
                     options = []
@@ -178,7 +182,6 @@ class ControlView(View):
                         options.append(discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"))
                     if "delete" in enabled_controls:
                         options.append(discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️"))
-
 
                     super().__init__(
                         placeholder="Channel Actions…",

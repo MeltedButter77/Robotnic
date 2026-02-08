@@ -92,6 +92,52 @@ class SettingsMenuCog(commands.Cog):
             f"profanity filter set to `{mode}`"
         )
 
+    @settings.command(description="Select how users control their temp channels.")
+    async def control_options(
+        self,
+        ctx: discord.ApplicationContext,
+        control_type: discord.Option(
+            str,
+            choices=["Dropdown Menu", "Buttons (Icons & Labels)", "Buttons (Icons Only)"],
+            description="Select how users control their temp channels.",
+            required=False
+        ),
+        option_description_message: discord.Option(
+            bool,
+            description="If enabled a portion of the control message will explain all the options",
+            required=False
+        ),
+    ):
+        old_control_options = self.bot.repos.guild_settings.get(ctx.guild_id)["control_options"]
+        selected_control_options = []
+
+        # Control type
+        control_type_map = {
+            "Dropdown Menu": {"dropdown", "labels"},
+            "Buttons (Icons & Labels)": {"buttons", "icons", "labels"},
+            "Buttons (Icons Only)": {"buttons", "icons"},
+        }
+        if control_type is None:
+            # Preserve previous structural control options
+            for option in ("dropdown", "labels", "icons", "buttons"):
+                if option in old_control_options:
+                    selected_control_options.append(option)
+        else:
+            selected_control_options.extend(control_type_map.get(control_type, []))
+
+        # Description message
+        if option_description_message is None:
+            # Preserve previous setting
+            if "description_embed" in old_control_options:
+                selected_control_options.append("description_embed")
+        elif option_description_message:
+            selected_control_options.append("description_embed")
+
+        self.bot.repos.guild_settings.edit(ctx.guild_id, control_options=selected_control_options)
+        await ctx.respond(
+            f"control options set to `{selected_control_options}`"
+        )
+
 
 def setup(bot):
     bot.add_cog(SettingsMenuCog(bot))

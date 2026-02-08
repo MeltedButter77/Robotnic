@@ -6,7 +6,8 @@ defaults = {
     "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"],
     "mention_owner_bool": 0,
     "profanity_filter": "alert",
-    "enabled_log_events": ["channel_create", "channel_rename", "channel_remove ", "profanity_block"]
+    "enabled_log_events": ["channel_create", "channel_rename", "channel_remove ", "profanity_block"],
+    "control_options": ["dropdown", "labels"],
 }
 
 
@@ -17,7 +18,7 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
 
     def get(self, guild_id):
         self.db.cursor.execute("""
-                            SELECT logs_channel_id, enabled_controls, mention_owner_bool, profanity_filter, enabled_log_events
+                            SELECT logs_channel_id, enabled_controls, mention_owner_bool, profanity_filter, enabled_log_events, control_options
                             FROM guild_settings
                             WHERE guild_id = ?
                             """, (guild_id,))
@@ -33,11 +34,13 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
             enabled_controls_json,
             mention_owner_bool,
             profanity_filter,
-            enabled_log_events_json
+            enabled_log_events_json,
+            control_options_json
         ) = row
 
         enabled_controls = json.loads(enabled_controls_json) if enabled_controls_json else {}
         enabled_log_events = json.loads(enabled_log_events_json) if enabled_log_events_json else {}
+        control_options = json.loads(control_options_json) if control_options_json else {}
 
         return {
             "guild_id": guild_id,
@@ -45,7 +48,8 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
             "enabled_controls": enabled_controls,
             "mention_owner_bool": bool(mention_owner_bool),
             "profanity_filter": profanity_filter,
-            "enabled_log_events": enabled_log_events
+            "enabled_log_events": enabled_log_events,
+            "control_options": control_options
         }
 
     def edit(
@@ -56,6 +60,7 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
             mention_owner: bool = None,
             profanity_filter: str = None,
             enabled_log_events: str = None,
+            control_options: str = None,
         ):
         # Check if the server has an entry
         self.db.cursor.execute("""
@@ -91,6 +96,10 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
         if enabled_log_events is not None:
             fields.append("enabled_log_events = ?")
             values.append(json.dumps(enabled_log_events))
+
+        if control_options is not None:
+            fields.append("control_options = ?")
+            values.append(json.dumps(control_options))
 
         if not fields:
             # Nothing to update
