@@ -28,7 +28,7 @@ class ChangeNameModal(discord.ui.Modal):
             channel_name = channel_name[:97] + "..."
 
         profanity_check_setting = self.bot.repos.guild_settings.get_profanity_filter(interaction.guild.id)["profanity_filter"]
-        if profanity_check_setting:
+        if profanity_check_setting is not None:
             profanity_check_response = requests.post(
                 "https://vector.profanity.dev",
                 headers={"Content-Type": "application/json"},
@@ -58,7 +58,8 @@ class ChangeNameModal(discord.ui.Modal):
                 embed.set_footer(text="Toggle with /settings")
                 await self.bot.GuildLogService.send(event="profanity_block", guild=interaction.guild, message=f"", embed=embed)
 
-                return await interaction.response.send_message("Sorry, that input was flagged for profanity.", ephemeral=True, delete_after=90)
+                if profanity_check_setting == "alert & block":
+                    return await interaction.response.send_message("Sorry, that input was flagged for profanity.", ephemeral=True, delete_after=90)
 
         # If inputted name, schedule update channel and update db
         if self.channel_name.value:

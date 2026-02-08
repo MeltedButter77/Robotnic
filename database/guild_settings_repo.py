@@ -134,7 +134,7 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
 
     def get_profanity_filter(self, guild_id):
         self.db.cursor.execute("""
-                            SELECT logs_channel_id
+                            SELECT profanity_filter
                             FROM guild_settings
                             WHERE guild_id = ?
                             """, (guild_id,))
@@ -147,7 +147,7 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
                 "profanity_filter": 1,
             }
 
-        profanity_filter = bool(row[0])
+        profanity_filter = row[0]
 
         return {
             "guild_id": guild_id,
