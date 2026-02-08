@@ -25,19 +25,15 @@ class ControlView(View):
             embed,
             ChannelInfoEmbed(self.bot, self.temp_channel, title=channel_name)
         ]
-        print("1")
         if "description_embed" in self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["control_options"]:
-            print("2")
             embeds.append(ControlIconsEmbed(self.bot, self.temp_channel))
-            print("3")
 
         is_mention_owner = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["mention_owner_bool"]
 
         self.control_message = await self.temp_channel.send(embeds=embeds, view=self)
 
         if is_mention_owner:
-            await self.temp_channel.send(f"Hey {owner_member.mention}, this is *your* vc. Use the message above to control it.", delete_after=10)
-        print("111")
+            await self.temp_channel.send(f"{owner_member.mention}, this is *your* vc. Use the message above to control it.", delete_after=1)
 
     def create_items(self):
         control_options = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)["control_options"]
