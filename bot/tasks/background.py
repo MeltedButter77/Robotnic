@@ -23,7 +23,7 @@ async def update_temp_channel_names(bot):
     while not bot.is_closed():  # Run on a schedule
         try:
             bot.logger.debug(f"Updating all temp channel names on schedule")
-            temp_channel_ids = bot.db.get_temp_channel_ids()
+            temp_channel_ids = bot.repos.temp_channels.get_ids()
             await update_channel_name_and_control_msg(bot, temp_channel_ids)
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")
@@ -66,7 +66,7 @@ async def clear_empty_temp_channels(bot):
         try:
             bot.logger.debug("Clearing empty temp channels...")
 
-            temp_channel_ids = bot.db.get_temp_channel_ids()
+            temp_channel_ids = bot.repos.temp_channels.get_ids()
             # creator_channel_ids = bot.db.get_creator_channel_ids()
 
             # Cleanup deleted creator channels
@@ -81,7 +81,7 @@ async def clear_empty_temp_channels(bot):
                 channel = bot.get_channel(channel_id)
                 if channel is None:
                     bot.logger.debug(f"Removing unfound/deleted temp channel from database")
-                    bot.db.remove_temp_channel(channel_id)
+                    bot.repos.temp_channels.remove(channel_id)
                     continue
 
                 # Having member intent should mean this is not needed
@@ -92,7 +92,7 @@ async def clear_empty_temp_channels(bot):
                 if len(channel.members) == 0:
                     bot.logger.debug(f"Deleting empty temp channel \'{channel.name}\'")
                     await channel.delete()
-                    bot.db.remove_temp_channel(channel.id)
+                    bot.repos.temp_channels.remove(channel.id)
 
         except Exception as e:
             bot.logger.error(f"Error in {__name__} task: {e}")

@@ -31,7 +31,7 @@ class GuildLogService:
         self.bot = bot
 
     async def send(self, event: str, guild, message="", embed=None):
-        channel = self.bot.get_channel(self.bot.db.get_guild_logs_channel_id(guild.id)["logs_channel_id"])
+        channel = self.bot.get_channel(self.bot.repos.guild_settings.get_logs_channel_id(guild.id)["logs_channel_id"])
         if not channel:
             return
 
@@ -40,8 +40,8 @@ class GuildLogService:
 
 # Creates loggers for debug and info for the program itself
 def setup_program_loggers(settings) -> logging.Logger:
-    discord_debug = settings["logging"].get("discord", False)
-    bot_debug = settings["logging"].get("bot", False)
+    discord_debug = settings["debug"].get("discord", False)
+    bot_debug = settings["debug"].get("bot", False)
 
     # File handler (shared)
     log_name = datetime.now()

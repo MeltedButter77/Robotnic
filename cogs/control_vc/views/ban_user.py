@@ -17,7 +17,7 @@ class BanUserView(discord.ui.View):
         ban_perms = {'connect': False, 'view_channel': False}
         selected_members = select.values
         members = []
-        owner_id = self.bot.db.get_temp_channel_info(self.channel.id).owner_id
+        owner_id = self.bot.repos.temp_channels.get_info(self.channel.id).owner_id
         connected_members = self.channel.members
 
         for member in selected_members:
