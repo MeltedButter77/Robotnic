@@ -128,7 +128,17 @@ class ControlView(View):
             ban_button.label = "Ban User"
 
         guild_settings = self.bot.repos.guild_settings.get(self.temp_channel.guild.id)
-        enabled_controls = guild_settings["enabled_controls"]
+        enabled_controls = list(guild_settings["enabled_controls"])
+
+        if not enabled_controls:
+            button = discord.ui.Button(
+                label="No Available Options",
+                # emoji="",
+                style=discord.ButtonStyle.secondary,
+                disabled=True
+            )
+            self.add_item(button)
+            return
 
         if "buttons" in control_options:
             if "rename" in enabled_controls:

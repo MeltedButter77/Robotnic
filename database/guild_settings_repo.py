@@ -45,22 +45,22 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
         return {
             "guild_id": guild_id,
             "logs_channel_id": logs_channel_id,
-            "enabled_controls": enabled_controls,
+            "enabled_controls": list(enabled_controls),
             "mention_owner_bool": bool(mention_owner_bool),
             "profanity_filter": profanity_filter,
-            "enabled_log_events": enabled_log_events,
-            "control_options": control_options
+            "enabled_log_events": list(enabled_log_events),
+            "control_options": list(control_options)
         }
 
     def edit(
             self,
             guild_id: int,
             logs_channel_id: int = None,
-            enabled_controls: str = None,
+            enabled_controls: list = None,
             mention_owner: bool = None,
             profanity_filter: str = None,
-            enabled_log_events: str = None,
-            control_options: str = None,
+            enabled_log_events: list = None,
+            control_options: list = None,
         ):
         # Check if the server has an entry
         self.db.cursor.execute("""
