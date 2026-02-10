@@ -2,7 +2,7 @@ import discord
 from discord.ui import View, Select, Button, Modal, InputText
 
 
-class SettingsView(View):
+class ChannelControlsView(View):
     def __init__(self, ctx, bot):
         super().__init__()
         self.bot = bot
@@ -43,32 +43,6 @@ class SettingsView(View):
         else:
             logs_channel_name = "Not Set"
 
-        log_channel_select = discord.ui.Select(
-            select_type=discord.ComponentType.channel_select,
-            channel_types=[discord.ChannelType.text],
-            placeholder=f"Current: {logs_channel_name} - Select a new channel",
-        )
-        log_channel_select.callback = self.log_channel_select_callback
-        self.add_item(log_channel_select)
-
-        remove_logs_channel_button = discord.ui.Button(
-            label="Clear Logs Channel",
-            style=discord.ButtonStyle.danger
-        )
-        remove_logs_channel_button.callback = self.remove_logs_channel_button_callback
-        self.add_item(remove_logs_channel_button)
-
-    async def log_channel_select_callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
-
-        channel_id = interaction.data["values"][0]
-        self.bot.repos.guild_settings.edit(interaction.guild_id, logs_channel_id=channel_id)
-        channel = self.message.guild.get_channel(int(channel_id))
-
-        await self.update()
-        return await interaction.response.send_message(f"Saved! {channel.mention} is now the log channel.", ephemeral=True, delete_after=5)
-
     async def controls_select_callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.author.id:
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
@@ -77,10 +51,55 @@ class SettingsView(View):
         await self.update()
         return await interaction.response.send_message(f"Options Saved!", ephemeral=True, delete_after=5)
 
-    async def remove_logs_channel_button_callback(self, interaction):
-        self.bot.repos.guild_settings.edit(interaction.guild_id, logs_channel_id=0)
+    async def update(self):
+        self.clear_items()
+        self.create_items()
+        await self.message.edit(view=self, embeds=self.message.embeds)
+
+    async def on_timeout(self):
+        await self.message.delete_original_response()
+
+
+class LogEventsView(View):
+    def __init__(self, ctx, bot):
+        super().__init__()
+        self.bot = bot
+        self.message = None
+        self.author = ctx.author
+
+        self.create_items(ctx.guild)
+
+    def create_items(self, guild=None):
+        # We require the guild id to edit the relevant settings.
+        # Usually provided by ctx on creation but when updated the guild is from the associated message.
+        if not guild and self.message:
+            guild = self.message.guild
+
+        if guild is None:
+            self.bot.logger.error("No guild obj to create items for SettingsView")
+            return
+
+        guild_settings = self.bot.repos.guild_settings.get(guild.id)
+        enabled_log_events = guild_settings["enabled_log_events"]
+
+        # Dropdown
+        controls_options = [
+            discord.SelectOption(value="channel_create", label="channel_create", emoji="🎁", default="channel_create" in enabled_log_events),
+            discord.SelectOption(value="channel_rename", label="channel_rename", emoji="🏷️", default="channel_rename" in enabled_log_events),
+            discord.SelectOption(value="channel_remove", label="channel_remove", emoji="🗑️", default="channel_remove" in enabled_log_events),
+            discord.SelectOption(value="profanity_block", label="profanity_block", emoji="😶", default="profanity_block" in enabled_log_events),
+        ]
+        controls_select = Select(placeholder="Select options to Enable or Disable", options=controls_options, max_values=len(controls_options), min_values=0)
+        controls_select.callback = self.controls_select_callback
+        self.add_item(controls_select)
+
+    async def controls_select_callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.author.id:
+            return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
+        enabled_log_events = interaction.data["values"]
+        self.bot.repos.guild_settings.edit(interaction.guild_id, enabled_log_events=enabled_log_events)
         await self.update()
-        await interaction.response.send_message("Cleared logs channel!", ephemeral=True, delete_after=5)
+        return await interaction.response.send_message(f"Options Saved!", ephemeral=True, delete_after=5)
 
     async def update(self):
         self.clear_items()
@@ -88,4 +107,4 @@ class SettingsView(View):
         await self.message.edit(view=self, embeds=self.message.embeds)
 
     async def on_timeout(self):
-        await self.message.edit(view=None, embeds=[], content="> Message timed out. Please run the command again.")
+        await self.message.delete_original_response()

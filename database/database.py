@@ -36,9 +36,9 @@ class Database:
                 guild_id INTEGER,
                 logs_channel_id INTEGER,
                 profanity_filter_bool INTEGER,
-                enabled_controls TEXT,
                 mention_owner_bool INTEGER,
-                logged_events TEXT
+                enabled_controls TEXT,
+                enabled_log_events TEXT
             )
         """)
         self.connection.commit()

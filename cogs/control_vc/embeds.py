@@ -4,7 +4,7 @@ from cogs.manage_vcs.create_name import create_temp_channel_name
 
 
 class ControlIconsEmbed(discord.Embed):
-    def __init__(self, bot):
+    def __init__(self, bot, channel):
         super().__init__(
             title="",
             description="",
@@ -17,7 +17,8 @@ class ControlIconsEmbed(discord.Embed):
         self.add_field(name="🧽 Clear", value="", inline=True)
         self.add_field(name="🔨 Ban", value="", inline=True)
         self.add_field(name="🗑️ Delete", value="", inline=True)
-        if bot.settings["control_message"].get("state_changeable", False):
+        control_options = bot.repos.guild_settings.get(channel.guild.id)["control_options"]
+        if "state_changeable" in control_options:
             self.add_field(name="🌐 Public", value="", inline=True)
             self.add_field(name="🙈 Hide", value="", inline=True)
             self.add_field(name="🔒 Lock", value="", inline=True)
@@ -63,7 +64,8 @@ class ChannelInfoEmbed(discord.Embed):
         #     region = "🌍 Auto"
         # self.add_field(name="Region", value=f"{region}", inline=True)
 
-        if bot.settings["control_message"].get("state_changeable", False):
+        control_options = bot.repos.guild_settings.get(temp_channel.guild.id)["control_options"]
+        if "state_changeable" in control_options:
             channel_state_id = temp_channel_info.channel_state
             if channel_state_id == ChannelState.PUBLIC.value:
                 channel_state = "🌐 Public"
