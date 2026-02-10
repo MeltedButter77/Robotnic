@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from cogs.creator_menu.embeds import ListCreatorsEmbed, OptionsEmbed
+from cogs.creator_menu.modals import TestModal
 from cogs.creator_menu.views import CreateView
 
 
@@ -35,6 +36,11 @@ class CreatorMenuCog(commands.Cog):
         view = CreateView(ctx=ctx, bot=self.bot)
         message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
         view.message = message
+
+    @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
+    @discord.default_permissions(administrator=True)
+    async def setup_1(self, ctx):
+        await ctx.response.send_modal(TestModal())
 
 
 def setup(bot):
