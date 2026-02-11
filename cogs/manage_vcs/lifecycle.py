@@ -46,7 +46,10 @@ async def create_on_join(member, before, after, bot):
     if db_creator_channel_info.child_overwrites == 1:
         overwrites = creator_channel.overwrites
     elif db_creator_channel_info.child_overwrites == 2:
-        overwrites = category.overwrites
+        if category:
+            overwrites = category.overwrites
+        else:
+            overwrites = creator_channel.overwrites
     else:
         overwrites = {}
 

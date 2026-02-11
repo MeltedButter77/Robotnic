@@ -55,6 +55,7 @@ class TestModal(discord.ui.DesignerModal):
                 channel_types=[discord.ChannelType.category],
                 min_values=1,
                 max_values=1,
+                placeholder="Default: Same as Creator"
             ),
         )
         self.add_item(self.category_select)
@@ -126,6 +127,7 @@ class EditModal(discord.ui.DesignerModal):
                 max_values=1,
                 required=False,
                 default_values=[category] if category else None,
+                placeholder="Default: Same as Creator"
             ),
         )
         self.add_item(self.category_label)
@@ -173,8 +175,11 @@ class EditModal(discord.ui.DesignerModal):
             child_overwrites=child_overwrites
         )
 
-        await interaction.response.send_message(
-            f"Creator channel updated!",
-            ephemeral=True
+        embed = discord.Embed(
+            title="Updated!",
+            description=f"",
+            color=discord.Color.green()
         )
+        embed.set_footer(text="This message will disappear in 10 seconds.")
+        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
         await self.view.update()

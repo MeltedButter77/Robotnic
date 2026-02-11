@@ -32,11 +32,11 @@ class ListCreatorsEmbed(discord.Embed):
                 user_limit = "Unlimited" if creator_info.user_limit == 0 else creator_info.user_limit
                 category = "Same as Creator" if creator_info.child_category_id == 0 else bot.get_channel(creator_info.child_category_id)
                 if creator_info.child_overwrites == 1:
-                    overwrites = "From Creator channel"
+                    overwrites = "Copy Creator Channel"
                 elif creator_info.child_overwrites == 2:
-                    overwrites = "From category"
+                    overwrites = "Copy Creator Category"
                 else:  # should be for case 0
-                    overwrites = "None. Permissions are cleared"
+                    overwrites = "None"
 
                 desc = f"Naming Scheme:\n> `{child_name}`\nUser Limit:\n> `{user_limit}`\nPermission Inheritance:\n> `{overwrites}`\nCategory:\n> `{category}`"
                 self.add_field(name=f"#{i+1}. {channel.mention}", value=desc, inline=True)
