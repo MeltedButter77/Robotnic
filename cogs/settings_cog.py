@@ -22,7 +22,7 @@ class SettingsMenuCog(commands.Cog):
 
         embed = discord.Embed(
             title="",
-            description=f"Make sure to click \"SUBMIT\" after editing the Enabled Controls.",
+            description=f"Make sure to click \"SUBMIT\" after editing the pop-up menu.",
             color=discord.Color.yellow()
         )
         embed.set_footer(text="This message will disappear in 30 seconds.")
@@ -37,7 +37,7 @@ class SettingsMenuCog(commands.Cog):
 
         embed = discord.Embed(
             title="",
-            description=f"Make sure to click \"SUBMIT\" after editing the Enabled Controls.",
+            description=f"Make sure to click \"SUBMIT\" after editing the pop-up menu.",
             color=discord.Color.yellow()
         )
         embed.set_footer(text="This message will disappear in 30 seconds.")

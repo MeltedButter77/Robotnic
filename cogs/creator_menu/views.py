@@ -5,12 +5,11 @@ from cogs.creator_menu.modals import EditModal
 
 
 class CreateView(View):
-    def __init__(self, ctx, bot, is_advanced: bool = False):
+    def __init__(self, ctx, bot):
         super().__init__()
         self.bot = bot
         self.message = None
         self.author = ctx.author
-        self.is_advanced = is_advanced
 
         self.create_items(ctx.guild)
 
@@ -56,7 +55,7 @@ class CreateView(View):
     async def update(self):
         embeds = [
             self.message.embeds[0],
-            ListCreatorsEmbed(self.message.guild, self.bot, is_advanced=self.is_advanced)
+            ListCreatorsEmbed(self.message.guild, self.bot)
         ]
         self.clear_items()
         self.create_items()
@@ -67,9 +66,10 @@ class CreateView(View):
         if interaction.user.id != self.author.id:
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
-        modal = EditModal(self, creator_id=interaction.data["values"][0], is_advanced=self.is_advanced)
+        modal = EditModal(self, creator_id=interaction.data["values"][0])
         await interaction.response.send_modal(modal)
-        await self.update()  # If modal isnt submitted the dropdown wont be already used/selected
+        await self.update()  # If modal isn't submitted the dropdown won't be already used/selected
+        return None
 
     # Button callback
     async def button_callback(self, interaction: discord.Interaction):

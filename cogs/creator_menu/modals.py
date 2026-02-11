@@ -75,69 +75,88 @@ class TestModal(discord.ui.DesignerModal):
         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=30)
 
 
-class EditModal(Modal):
-    def __init__(self, view, creator_id, is_advanced: bool = False):
+class EditModal(discord.ui.DesignerModal):
+    def __init__(self, view, creator_id):
         super().__init__(title="Example Modal")
         self.view = view
         self.creator_id = creator_id
+        creator_info = self.view.bot.repos.creator_channels.get_info(self.creator_id)
 
-        # Add input fields
-        self.add_item(InputText(label="Name of Temporary Channel Created", placeholder="Can include variables {user}, {activity} or {count}", required=False))
-        if is_advanced:
-            self.add_item(InputText(label="User Limit", placeholder="Enter integer 0-99 (0 = Unlimited)", required=False))
-            self.add_item(InputText(label="Temp Channel Category ID", placeholder="Enter 0 (for same as creator) or category ID", required=False))
-            self.add_item(InputText(label="Temp Channel Permissions", placeholder="Enter integer 0-2 (differences explained in /creator menu)", required=False))
+        self.child_name_label = discord.ui.Label(
+            "Child Name, use: {user} {activity} {count}",
+            discord.ui.TextInput(
+                placeholder=f"{creator_info.child_name}",
+                required=False,
+                max_length=100,
+            ),
+        )
+        self.add_item(self.child_name_label)
+
+        self.user_limit_label = discord.ui.Label(
+            "User Limit (0 = Unlimited)",
+            discord.ui.TextInput(
+                placeholder=f"{creator_info.user_limit}",
+                required=False,
+                max_length=500,
+            ),
+        )
+        self.add_item(self.user_limit_label)
+
+        self.child_overwrites_label = discord.ui.Label(
+            "Permission Handling",
+            discord.ui.Select(
+                options=[
+                    discord.SelectOption(value="1", label="Copy Creator Channel", default=True if creator_info.child_overwrites == 1 else False),
+                    discord.SelectOption(value="2", label="Copy Child's Category", default=True if creator_info.child_overwrites == 2 else False),
+                    discord.SelectOption(value="0", label="No Permissions", default=True if creator_info.child_overwrites == 0 else False),
+                ],
+                min_values=1,
+                max_values=1,
+                required=True
+            ),
+        )
+        self.add_item(self.child_overwrites_label)
+
+        category = self.view.bot.get_channel(creator_info.child_category_id)
+        self.category_label = discord.ui.Label(
+            "Optional: Set a Category",
+            discord.ui.ChannelSelect(
+                channel_types=[discord.ChannelType.category],
+                min_values=1,
+                max_values=1,
+                required=False,
+                default_values=[category] if category else None,
+            ),
+        )
+        self.add_item(self.category_label)
 
     async def callback(self, interaction: discord.Interaction):
         errors = []
 
-        db_creator_channel_info = self.view.bot.repos.creator_channels.get_info(self.creator_id)
+        child_name = self.child_name_label.item.value
+        user_limit = self.user_limit_label.item.value
+        child_overwrites = self.child_overwrites_label.item.values[0] if len(self.child_overwrites_label.item.values) > 0 else None
+        child_category_id = self.category_label.item.values[0].id if len(self.category_label.item.values) > 0 else None
 
-        # Validate Child name length
-        child_name = self.children[0].value.strip() or db_creator_channel_info.child_name
-        if len(child_name) > 100:
-            errors.append("Child name must be under 100 characters.")
-
-        # Validate user limit
-        # Each input may not exist as the simple version will only have 1 item in list self.children
-        user_limit_raw = self.children[1].value.strip() if len(self.children) > 1 else ""
-
-        if user_limit_raw == "":
-            user_limit = db_creator_channel_info.user_limit
+        creator_info = self.view.bot.repos.creator_channels.get_info(self.creator_id)
+        if child_name:
+            # Validate Child name length
+            child_name = child_name.strip()
+            if len(child_name) > 100:
+                errors.append("Child name must be under 100 characters.")
         else:
+            child_name = creator_info.child_name
+
+        if user_limit:
             try:
-                user_limit = int(user_limit_raw)
+                user_limit = int(user_limit)
                 if not (0 <= user_limit <= 99):
                     errors.append("User limit must be an integer between `0` and `99` inclusive.")
             except ValueError:
                 errors.append("User limit must be an integer.")
-
-        # Validate Child Category ID
-        category_raw = self.children[2].value.strip() if len(self.children) > 1 else ""
-        if category_raw == "":
-            child_category_id = db_creator_channel_info.child_category_id
         else:
-            try:
-                child_category_id = int(category_raw)
-                category = self.view.bot.get_channel(child_category_id)
-                if child_category_id < 0 or category is None:
-                    errors.append("Category ID must be `0` or a valid category ID (positive integer).")
-            except ValueError:
-                errors.append("Category ID must be an integer.")
+            user_limit = creator_info.user_limit
 
-        # Validate Child Overwrite optiuons
-        overwrites_raw = self.children[3].value.strip() if len(self.children) > 1 else ""
-        if overwrites_raw == "":
-            child_overwrites = db_creator_channel_info.child_overwrites
-        else:
-            try:
-                child_overwrites = int(overwrites_raw)
-                if child_overwrites not in (0, 1, 2):
-                    errors.append("Permissions must be `0` (None), `1` (From Creator), or `2` (From Category).")
-            except ValueError:
-                errors.append("Permissions must be an integer `0` (None), `1` (From Creator), or `2` (From Category).")
-
-        # --- Handle Errors ---
         if errors:
             await interaction.response.send_message(
                 f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),

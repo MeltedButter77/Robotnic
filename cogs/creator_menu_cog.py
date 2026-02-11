@@ -11,20 +11,6 @@ class CreatorMenuCog(commands.Cog):
 
     @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
     @discord.default_permissions(administrator=True)
-    async def setup_advanced(self, ctx):
-        if not ctx.author.guild_permissions.administrator:
-            return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
-
-        embeds = [
-            OptionsEmbed(is_advanced=True),
-            ListCreatorsEmbed(guild=ctx.guild, bot=self.bot, is_advanced=True),
-        ]
-        view = CreateView(ctx=ctx, bot=self.bot, is_advanced=True)
-        message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
-        view.message = message
-
-    @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
-    @discord.default_permissions(administrator=True)
     async def setup(self, ctx):
         if not ctx.author.guild_permissions.administrator:
             return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
@@ -36,11 +22,6 @@ class CreatorMenuCog(commands.Cog):
         view = CreateView(ctx=ctx, bot=self.bot)
         message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
         view.message = message
-
-    @discord.slash_command(description="Opens a menu to make and edit Creator Channels")
-    @discord.default_permissions(administrator=True)
-    async def setup_1(self, ctx):
-        await ctx.response.send_modal(TestModal())
 
 
 def setup(bot):
