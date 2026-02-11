@@ -169,10 +169,11 @@ class GuildSettingsRepository:  # bot.repos.guild_settings
         mention_owner_bool = defaults["mention_owner_bool"]
         profanity_filter = defaults["profanity_filter"]
         enabled_log_events_json = json.dumps(defaults["enabled_log_events"])
+        control_options_json = json.dumps(defaults["control_options"])
 
         self.db.cursor.execute("""
             INSERT OR REPLACE INTO guild_settings
-            (guild_id, logs_channel_id, enabled_controls, mention_owner_bool, profanity_filter, enabled_log_events)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (guild_id, logs_channel_id, enabled_controls_json, bool(mention_owner_bool), profanity_filter, enabled_log_events_json))
+            (guild_id, logs_channel_id, enabled_controls, mention_owner_bool, profanity_filter, enabled_log_events, control_options)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (guild_id, logs_channel_id, enabled_controls_json, bool(mention_owner_bool), profanity_filter, enabled_log_events_json, control_options_json))
         self.db.connection.commit()
