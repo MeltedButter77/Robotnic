@@ -131,7 +131,7 @@ class LogsModal(discord.ui.DesignerModal):
         self._add_log_events(guild_settings)
 
     def _add_log_channel(self, guild_settings):
-        if int(guild_settings["logs_channel_id"]) != 0:
+        if guild_settings["logs_channel_id"] is not None and int(guild_settings["logs_channel_id"]) != 0:
             log_channel = self.bot.get_channel(guild_settings["logs_channel_id"])
         else:
             log_channel = None

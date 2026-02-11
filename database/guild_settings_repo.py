@@ -6,7 +6,7 @@ defaults = {
     "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"],
     "mention_owner_bool": 0,
     "profanity_filter": "alert",
-    "enabled_log_events": ["channel_create", "channel_rename", "channel_remove ", "profanity_block"],
+    "enabled_log_events": ["channel_create", "channel_rename", "channel_remove", "profanity_block"],
     "control_options": ["dropdown", "labels"],
 }
 
