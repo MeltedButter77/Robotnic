@@ -1,6 +1,6 @@
 import discord
 from discord.ui import View, Select, Button, Modal, InputText
-from cogs.creator_menu.embeds import ListCreatorsEmbed
+from cogs.creator_menu.embeds import ListCreatorsEmbed, OptionsEmbed
 from cogs.creator_menu.modals import EditModal
 
 
@@ -45,16 +45,17 @@ class CreateView(View):
         if not is_disabled:  # Removes dropdown entirely instead of disabling
             self.add_item(select)
 
-        # Buttons (same row)
-        button1 = Button(label=f"Make new Creator", style=discord.ButtonStyle.success)  # primary, danger
-        button1.callback = self.button_callback
+        # New Creator button
+        creator_button = Button(label=f"Make new Creator", style=discord.ButtonStyle.success)  # primary, danger
+        creator_button.callback = self.creator_button_callback
+        self.add_item(creator_button)
 
-        # Add buttons to the view
-        self.add_item(button1)
+        options_button = Button(label=f"Explain the options", style=discord.ButtonStyle.primary)  # primary, danger
+        options_button.callback = self.options_button_callback
+        self.add_item(options_button)
 
     async def update(self):
         embeds = [
-            self.message.embeds[0],
             ListCreatorsEmbed(self.message.guild, self.bot)
         ]
         self.clear_items()
@@ -72,7 +73,7 @@ class CreateView(View):
         return None
 
     # Button callback
-    async def button_callback(self, interaction: discord.Interaction):
+    async def creator_button_callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.author.id:
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
@@ -85,12 +86,16 @@ class CreateView(View):
         embeds[1].title = "For Best Results:"
         embeds[1].add_field(name="", value="**Move the channel** to your desired location and **change its name** if you wish to distinguish it from other Creator Channels.", inline=True)
         embeds[1].add_field(name="", value="If you wish to edit the **name scheme** of temp channels, please **select a Creator Channel to edit above**", inline=True)
-        embeds[1].add_field(name="", value="Any temp channels it creates, by default, will **inherit the same permissions as the creator**.", inline=True)
         embeds[1].footer = discord.EmbedFooter("This message will disappear in 60 seconds")
         await interaction.response.send_message(f"", embeds=embeds, ephemeral=True, delete_after=60)
         await self.update()
 
         await self.bot.BotLogService.send(event="creator_create", message=f"Creator Channel was made in `{interaction.guild.name}` by `{interaction.user}`")
+        return None
+
+    async def options_button_callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"", embed=OptionsEmbed(), ephemeral=True, delete_after=60)
+        await self.update()
         return None
 
     async def on_timeout(self):

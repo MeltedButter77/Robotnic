@@ -15,10 +15,14 @@ class CreatorMenuCog(commands.Cog):
         if not ctx.author.guild_permissions.administrator:
             return await ctx.send_response(f"Sorry {ctx.author.mention}, you require the `administrator` permission to run this command.")
 
-        embeds = [
-            OptionsEmbed(),
-            ListCreatorsEmbed(guild=ctx.guild, bot=self.bot),
-        ]
+        creator_channel_ids = self.bot.repos.creator_channels.get_ids(ctx.guild.id)
+        for channel_id in creator_channel_ids:
+            channel = self.bot.get_channel(channel_id)
+            if channel is None:
+                self.bot.logger.debug(f"Removing unfound/deleted creator channel from database")
+                self.bot.repos.creator_channels.remove(channel_id)
+
+        embeds = [ListCreatorsEmbed(guild=ctx.guild, bot=self.bot)]
         view = CreateView(ctx=ctx, bot=self.bot)
         message = await ctx.send_response(f"{ctx.author.mention}", embeds=embeds, view=view)  # , ephemeral=True)
         view.message = message

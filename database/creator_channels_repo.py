@@ -100,7 +100,6 @@ class CreatorChannelsRepository:  # bot.repos.creator_channels
                 self.child_overwrites = child_overwrites
         return CreatorInfo(*row)
 
-
     def add(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
         """
         Insert or replace a creator channel record into creator_channels.
@@ -111,7 +110,6 @@ class CreatorChannelsRepository:  # bot.repos.creator_channels
             VALUES (?, ?, ?, ?, ?, ?)
         """, (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites))
         self.db.connection.commit()
-
 
     def remove(self, channel_id):
         """
