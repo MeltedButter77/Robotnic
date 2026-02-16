@@ -5,6 +5,20 @@ from cogs.control_vc.embed_updates import update_info_embed
 from cogs.manage_vcs.update_name import update_channel_name_and_control_msg
 
 
+async def check_profanity(logger, session, text: str) -> dict | None:
+    try:
+        response = session.post(
+            "https://vector.profanity.dev",
+            json={"message": text},
+            timeout=3,
+        )
+        print("respo", response)
+        return response.json()
+    except Exception as e:
+        logger.warning(f"Profanity API failed, skipping check. {e}")
+        return None
+
+
 class ChangeNameModal(discord.ui.Modal):
     def __init__(self, bot, channel):
         super().__init__(title="Edit Your Channel")
@@ -29,12 +43,7 @@ class ChangeNameModal(discord.ui.Modal):
 
         profanity_check_setting = self.bot.repos.guild_settings.get_profanity_filter(interaction.guild.id)["profanity_filter"]
         if profanity_check_setting is not None:
-            profanity_check_response = requests.post(
-                "https://vector.profanity.dev",
-                headers={"Content-Type": "application/json"},
-                json={"message": channel_name},
-            )
-            profanity_check = profanity_check_response.json()
+            profanity_check = await check_profanity(self.bot.logger, requests, channel_name)
 
             if profanity_check["isProfanity"]:
                 embed = discord.Embed(

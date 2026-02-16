@@ -126,11 +126,17 @@ class TempChannelsRepository:  # bot.repos.temp_channels
             """, (guild_id, channel_id, creator_id, owner_id, channel_state, number, is_renamed))
         self.db.connection.commit()
 
-    def get_ids(self):
+    def get_ids(self, guild_id: int = None):
         """
         Returns a list of all channel_id values from temp_channels.
         """
-        self.db.cursor.execute("SELECT channel_id FROM temp_channels")
+        if guild_id:
+            self.db.cursor.execute(
+                "SELECT channel_id FROM temp_channels WHERE guild_id = ?",
+                (guild_id,)
+            )
+        else:
+            self.db.cursor.execute("SELECT channel_id FROM temp_channels")
         rows = self.db.cursor.fetchall()
         return [row[0] for row in rows]
 

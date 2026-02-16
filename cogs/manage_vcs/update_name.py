@@ -17,6 +17,8 @@ async def update_channel_name_and_control_msg(bot, temp_channel_ids):
     async def update(temp_channel_id):
         temp_channel = bot.get_channel(temp_channel_id)
         db_temp_channel_info = bot.repos.temp_channels.get_info(temp_channel_id)
+        if temp_channel is None or db_temp_channel_info is None:
+            return
         if db_temp_channel_info.is_renamed:
             return
         if not temp_channel or not db_temp_channel_info.creator_id:  # Filter so only channels in the temp_channels db continue

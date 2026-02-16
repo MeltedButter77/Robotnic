@@ -14,15 +14,13 @@ async def handle_voice_state_update(bot, member, before, after):
             await create_on_join(member, before, after, bot)
 
     if before.channel:  # If a user left a channel
-        temp_channel_ids = bot.repos.temp_channels.get_ids()
+        temp_channel_ids = bot.repos.temp_channels.get_ids(guild_id=before.channel.guild.id)
         if before.channel.id in temp_channel_ids:  # Filter to temp channels
             await delete_on_leave(member, before, after, bot)
 
-            # Update channel names of all temp channels
-            # Technically channel names only need to be updated on activity change and deleting a channel (this), no coroutine needed.
-            # Future optimisation, This should also only update channels in this server
-            bot.logger.debug(f"Updating all temp channel names because a user left a temp_vc")
-            temp_channel_ids = bot.repos.temp_channels.get_ids()
+            # Update channel names of all temp channels in the guild
+            # Technically channel names only need to be updated on activity change and deleting a channel (this), no background task required.
+            bot.logger.debug(f"Updating temp channel names in a guild because a user left a temp_vc")
             await update_channel_name_and_control_msg(bot, temp_channel_ids)
 
 

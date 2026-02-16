@@ -315,12 +315,6 @@ class ControlView(View):
             # Delete the channel from the database and then delete the channel
             try:
                 await interaction.channel.delete()
-            except Exception as e:
-                self.bot.logger.error(f"error deleting channel, {interaction}")
-                raise
-
-            try:
-                await interaction.channel.delete()
             except discord.NotFound as e:
                 self.bot.logger.debug(f"Channel not found removing temp channel, handled. {e}")
             except discord.Forbidden as e:
