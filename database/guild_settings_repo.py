@@ -5,7 +5,7 @@ defaults = {
     "logs_channel_id": None,
     "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"],
     "mention_owner_bool": 0,
-    "profanity_filter": "alert",
+    "profanity_filter": "alert & block",
     "enabled_log_events": ["channel_create", "channel_rename", "channel_remove", "profanity_block"],
     "control_options": ["dropdown", "labels"],
 }

@@ -32,7 +32,7 @@ class Database:
             )
         """)
         self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS creator_channels (
+            CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id INTEGER,
                 logs_channel_id INTEGER,
                 profanity_filter_bool INTEGER,

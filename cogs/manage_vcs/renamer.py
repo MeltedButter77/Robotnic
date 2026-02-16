@@ -13,14 +13,13 @@ class TempChannelRenamer:
     def __init__(self, bot):
         self.bot = bot
 
-        # Each channel ID stores its own new_name (next name it will have once rate-limit gone)
-        self.name_queues = {}  # channel_id - asyncio.Queue()
+        self.pending_name = {}  # This is the most up-to-date name that it will be changed to next
 
         # Each channel ID stores a worker task that processes renames
         self.rename_workers = {}  # channel_id - asyncio.Task()
 
         # Tracks when each channel was last renamed
-        self.last_rename_time = {}  # channel_id - timestamp
+        self.last_rename_time = {}
 
         # Minimum safe time between renames (10 minutes)
         self.minimum_interval = 600.0
@@ -32,7 +31,7 @@ class TempChannelRenamer:
         """
 
         # Create a queue for this channel if needed
-        self.name_queues[channel.id] = new_name
+        self.pending_name[channel.id] = new_name
         self.bot.logger.debug(f"[RENAMER] Queued rename request for channel {channel.name} ({channel.id}): '{new_name}'.")
 
         # Start a worker for this channel if none exists
@@ -46,7 +45,7 @@ class TempChannelRenamer:
         It exits when no more rename requests exist.
         """
 
-        new_name = self.name_queues[channel.id]
+        new_name = self.pending_name[channel.id]
 
         while True:
             self.bot.logger.debug(
@@ -65,7 +64,7 @@ class TempChannelRenamer:
                 await asyncio.sleep(time_remaining)
 
             # Get new name which may have changed while waiting
-            new_name = self.name_queues[channel.id]
+            new_name = self.pending_name[channel.id]
 
             self.bot.logger.debug(f"[RENAMER] Renaming channel {channel.name} ({channel.id}) to '{new_name}'.")
 
@@ -96,5 +95,5 @@ class TempChannelRenamer:
                 break
 
         # Cleanup after the worker finishes
-        self.name_queues.pop(channel.id, None)
+        self.pending_name.pop(channel.id, None)
         self.rename_workers.pop(channel.id, None)
