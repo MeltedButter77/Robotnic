@@ -3,39 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dr Robotnic Home Page</title>
+    <title>Robotnic – Dynamic Voice Channels Discord Bot</title>
+    <meta name="description" content="Robotnic is an open‑source Discord bot that automatically creates, manages, and cleans up temporary voice channels so your server stays tidy and organized.">
+    <meta name="keywords" content="Robotnic, Discord bot, dynamic voice channels, temporary voice channels, Discord voice manager, open source Discord bot">
+    <link rel="canonical" href="https://meltedbutter.dev/robotnic/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Robotnic – Dynamic Voice Channels Discord Bot">
+    <meta property="og:description" content="Automatically create and clean up temporary voice channels on Discord with Robotnic, a free and open‑source bot for organized servers.">
+    <meta property="og:url" content="https://meltedbutter.dev/robotnic/">
+    <meta property="og:site_name" content="Robotnic">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Robotnic – Dynamic Voice Channels Discord Bot">
+    <meta name="twitter:description" content="Dynamic, auto‑managed voice channels for Discord servers of any size.">
     <link rel="stylesheet" href="scss/main.css">
 </head>
 <body>
 <nav>
     <ul>
         <li><a href="index.html" class="active">Home</a></li>
-        <li><a href="https://meltedbutter.xyz/src/layouts/contact.html">Contact Dev</a></li>
+        <li><a href="https://meltedbutter.dev/contact.html">Contact Dev</a></li>
     </ul>
 </nav>
 
 <main>
+    <!-- Hero section -->
     <section class="hero">
-        <h1>Introducing Dr Robotnic</h1>
-        <p>Your partner in helping you manage your Discord server.</p>
-        <a href="https://discord.com/oauth2/authorize?client_id=853490879753617458" class="button">Invite to Server</a>
+        <div class="hero__content">
+            <p class="hero__eyebrow">Open‑source Discord bot</p>
+            <h1>Smarter, cleaner voice channels.</h1>
+            <p class="hero__subtitle">
+                Robotnic automatically creates, manages, and cleans up temporary voice channels so your
+                server always feels tidy, organized, and ready for the next conversation.
+            </p>
+            <div class="hero__actions">
+                <a href="https://discord.com/oauth2/authorize?client_id=853490879753617458"
+                   class="button button--large">
+                    Invite Robotnic
+                </a>
+                <a href="https://discord.gg/rcAREJyMV5"
+                   class="button button--secondary button--large">
+                    Join Support Server
+                </a>
+            </div>
+            <p class="hero__note">
+                Free to use, fully open‑source, and designed for communities of any size.
+            </p>
+        </div>
     </section>
 
+    <!-- Live stats-style section -->
+    <section class="stats">
+        <h2>Live at a glance</h2>
+        <p class="stats__hint">
+
+        </p>
+        <div class="stats__grid">
+            <div class="stat-card">
+                <span class="stat-card__label">Servers</span>
+                <span class="stat-card__value">4</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card__label">Users</span>
+                <span class="stat-card__value">87</span>
+            </div>
+        </div>
+        <p class="stats__note">
+
+        </p>
+    </section>
+
+    <!-- Benefits / features section -->
     <section class="features">
-        <h2>Features</h2>
-        <ul>
-            <li>Customizable voice channel creator.</li>
-            <li>Automatic voice channel creation.</li>
-            <li>User-friendly interface.</li>
-            <li>24/7 uptime with reliable performance.</li>
-            <li>Free to use and Open source.</li>
-        </ul>
-    </section>
-
-    <section class="community">
-        <h2>Join Our Community</h2>
-        <p>Connect with other users and get support.</p>
-        <a href="https://discord.gg/rcAREJyMV5" class="button">Join Discord Server</a>
+        <h2>Why use Robotnic?</h2>
+        <div class="feature-grid">
+            <article class="feature">
+                <h3>Automatic voice channel creation</h3>
+                <p>
+                    Designate “creator” channels and Robotnic will spin up personal or activity‑based
+                    voice channels the moment someone joins, then remove them when they’re empty.
+                </p>
+            </article>
+            <article class="feature">
+                <h3>Cleaner server layout</h3>
+                <p>
+                    Keep your server sidebar focused. No more pages of unused voice channels. Only
+                    what people need, when they need it.
+                </p>
+            </article>
+            <article class="feature">
+                <h3>Owner‑friendly controls</h3>
+                <p>
+                    Channel owners can rename, adjust user limits, transfer ownership, and more.
+                    All from an intuitive in‑channel control panel.
+                </p>
+            </article>
+            <article class="feature">
+                <h3>Admin‑grade configuration</h3>
+                <p>
+                    Fine‑tune name templates, user limits, categories, and permissions. Robotnic
+                    stores everything in SQLite, so settings persist across restarts.
+                </p>
+            </article>
+        </div>
     </section>
 </main>
 
