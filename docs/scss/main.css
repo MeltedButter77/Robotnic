@@ -1,5 +1,5 @@
 .button {
-  background-color: #6366f1;
+  background-color: #585aba;
   color: #fff;
   padding: 10px 20px;
   text-align: center;
@@ -17,10 +17,10 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 .button:hover {
-  background-color: rgb(145.8, 147.9, 245.2);
+  background-color: rgb(124.0889830508, 125.656779661, 200.9110169492);
 }
 .button:active {
-  background-color: rgb(52.2, 56.1, 236.8);
+  background-color: rgb(65.1991525424, 67.0889830508, 157.8008474576);
   -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -29,13 +29,13 @@
 
 /* Secondary Button Style */
 .button--secondary {
-  background-color: #e5e7eb;
+  background-color: #6366f1;
 }
 .button--secondary:hover {
-  background-color: white;
+  background-color: rgb(145.8, 147.9, 245.2);
 }
 .button--secondary:active {
-  background-color: rgb(200.1739130435, 204.3913043478, 212.8260869565);
+  background-color: rgb(52.2, 56.1, 236.8);
 }
 
 /* Disabled Button Style */
@@ -64,7 +64,7 @@
 
 /* Navigation Bar */
 nav {
-  background-color: #1f41d5;
+  background-color: #6366f1;
   padding: 30px 0;
 }
 nav ul {
@@ -90,7 +90,7 @@ nav ul li a:hover {
 
 /* Footer */
 footer {
-  background-color: #1f41d5;
+  background-color: #6366f1;
   padding: 15px;
   text-align: center;
   position: relative;
@@ -149,7 +149,7 @@ code {
 
 /* Hero */
 .hero {
-  background: linear-gradient(135deg, rgb(183.24, 184.62, 248.56), #e5e7eb);
+  background: linear-gradient(135deg, rgb(152.9601694915, 154.1822033898, 212.8398305085), #6366f1);
   border-radius: 16px;
   padding: 40px 28px;
   margin-bottom: 40px;
