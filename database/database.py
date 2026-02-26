@@ -35,9 +35,10 @@ class Database:
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id INTEGER,
                 logs_channel_id INTEGER,
-                profanity_filter_bool INTEGER,
+                profanity_filter TEXT,
                 mention_owner_bool INTEGER,
                 enabled_controls TEXT,
+                control_options TEXT,
                 enabled_log_events TEXT
             )
         """)
