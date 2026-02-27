@@ -11,6 +11,12 @@ from cogs.control_vc.views.give_ownership import GiveOwnershipView
 from cogs.control_vc.views.ban_user import BanUserView
 
 
+async def update_overwrites(default_role, channel, new_overwrite):
+    overwrites = channel.overwrites
+    overwrites[default_role] = new_overwrite
+    await channel.edit(overwrites=overwrites)
+
+
 class ControlView(View):
     def __init__(self, bot, temp_channel):
         super().__init__(timeout=None)
@@ -265,18 +271,30 @@ class ControlView(View):
     # --- Callbacks ---
     async def public_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.PUBLIC.value)
+
+        new_overwrite = discord.PermissionOverwrite(view_channel=True, connect=True)
+        default_role = interaction.guild.default_role
+        await update_overwrites(default_role, interaction.channel, new_overwrite)
         await self.recreate_items()
 
         await interaction.response.send_message("Your channel is now public.", ephemeral=True, delete_after=20)
 
     async def lock_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.LOCKED.value)
+
+        new_overwrite = discord.PermissionOverwrite(view_channel=True, connect=False)
+        default_role = interaction.guild.default_role
+        await update_overwrites(default_role, interaction.channel, new_overwrite)
         await self.recreate_items()
 
         await interaction.response.send_message("Your channel is now locked.", ephemeral=True, delete_after=20)
 
     async def hide_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.HIDDEN.value)
+
+        new_overwrite = discord.PermissionOverwrite(view_channel=False, connect=False)
+        default_role = interaction.guild.default_role
+        await update_overwrites(default_role, interaction.channel, new_overwrite)
         await self.recreate_items()
 
         await interaction.response.send_message("Your channel is now hidden.", ephemeral=True, delete_after=20)
