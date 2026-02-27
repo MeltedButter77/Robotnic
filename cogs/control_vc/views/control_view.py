@@ -1,8 +1,6 @@
 import asyncio
 import discord
 from discord.ui import View
-from fontTools.subset import intersect
-
 from cogs.control_vc.enums import ChannelState
 from cogs.control_vc.embeds import ChannelInfoEmbed, ControlIconsEmbed
 from cogs.control_vc.owner import is_owner
