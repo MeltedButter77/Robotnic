@@ -97,7 +97,9 @@ TOKEN=TOKEN_HERE
 ```bash
 python main.py
 ```
-Optionally: Edit the settings.json below is the default settings with explinations of their options. Please note json does not support comments, do not include comments in your settings.json file.
+Optionally: Edit the settings.json. 
+
+Below is the default settings.json with explanations of their options. Please note json does not support comments, do not include comments in your settings.json file.
 ```
 {    
     {
@@ -127,5 +129,5 @@ Optionally: Edit the settings.json below is the default settings with explinatio
 ```
 Please make sure you have message, member and activity intents enabled in the Discord Developer Portal for your bot.
 
-## Planned Future Features
+## Future Features
 Join the 👉[Discord Server](https://discord.gg/rcAREJyMV5) to keep up to date with any developments.
