@@ -32,6 +32,8 @@ class SettingsModal(discord.ui.DesignerModal):
             discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨", default="ban" in enabled_controls),
             discord.SelectOption(value="give", label="Give Ownership", emoji="🎁", default="give" in enabled_controls),
             discord.SelectOption(value="delete", label="Delete Channel", emoji="🗑️", default="delete" in enabled_controls),
+            discord.SelectOption(value="lock", label="Lock Channel", emoji="🔒", default="lock" in enabled_controls),
+            discord.SelectOption(value="hide", label="Hide Channel", emoji="🙈", default="hide" in enabled_controls),
         ]
         controls_select = Select(placeholder="Select options to Enable or Disable", options=controls_options, max_values=len(controls_options), min_values=0, required=False)
         self.controls_select_label = discord.ui.Label(

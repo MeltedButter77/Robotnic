@@ -15,7 +15,7 @@ class ControlIconsEmbed(discord.Embed):
         self.add_field(name="🚧 Limit", value="", inline=True)
         self.add_field(name="🎁 Give", value="", inline=True)
         self.add_field(name="🧽 Clear", value="", inline=True)
-        self.add_field(name="🔨 Ban", value="", inline=True)
+        self.add_field(name="🔨 Ban/Allow", value="", inline=True)
         self.add_field(name="🗑️ Delete", value="", inline=True)
         control_options = bot.repos.guild_settings.get(channel.guild.id)["control_options"]
         if "state_changeable" in control_options:

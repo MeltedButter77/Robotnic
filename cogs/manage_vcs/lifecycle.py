@@ -144,7 +144,8 @@ async def create_on_join(member, before, after, bot):
                     value=f"`{member.display_name}` (`{member.display_name}`, `{member.id}`)",
                     inline=False)
     embed.timestamp = datetime.datetime.now()
-    await bot.GuildLogService.send(event="channel_create", guild=after.channel.guild, message=f"", embed=embed)
+    if after.channel:
+        await bot.GuildLogService.send(event="channel_create", guild=after.channel.guild, message=f"", embed=embed)
     await bot.BotLogService.send(event="channel_create", message=f"Temp Channel (`{new_temp_channel.name}`) was made in server (`{member.guild.name}`) by user (`{member}`)")
 
 

@@ -13,41 +13,93 @@ class BanUserView(discord.ui.View):
         min_values=0,
         max_values=25
     )
-    async def select_callback(self, select, interaction: discord.Interaction):
-        ban_perms = {'connect': False, 'view_channel': False}
-        selected_members = select.values
-        members = []
+    async def ban_select_callback(self, select, interaction: discord.Interaction):
+        ban_perms = {
+            "connect": False,
+            "view_channel": False
+        }
+
         owner_id = self.bot.repos.temp_channels.get_info(self.channel.id).owner_id
         connected_members = self.channel.members
+        affected = []
 
-        for member in selected_members:
-            if member:
-                if member.id != owner_id:
-                    members.append(member)
-                    await self.channel.set_permissions(
-                        member,
-                        **ban_perms
-                    )
-                    if member in connected_members:
-                        await member.move_to(None)
+        for target in select.values:
+            if not target:
+                continue
 
-        if len(members) > 0:
+            if isinstance(target, discord.Member) and target.id == owner_id:
+                continue
+
+            await self.channel.set_permissions(target, **ban_perms)
+            affected.append(target)
+
+            if isinstance(target, discord.Member) and target in connected_members:
+                await target.move_to(None)
+
+        if affected:
             embed = discord.Embed(
-                title=f"Banned!",
-                description=f"Banned {len(members)} member(s)/role(s) from your channel.",
-                color=0x00ff00
+                title="Banned!",
+                description=f"Banned {len(affected)} member(s)/role(s) from your channel.",
+                color=0x00FF00
             )
             embed.set_footer(text="This message will disappear in 10 seconds.")
-            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=10)
+            await interaction.response.send_message(
+                embed=embed,
+                ephemeral=True,
+                delete_after=10
+            )
+
+    # ---- ALLOW SELECT ----
+    @discord.ui.mentionable_select(
+        placeholder="Select members or roles to allow",
+        min_values=0,
+        max_values=25
+    )
+    async def allow_select_callback(self, select, interaction: discord.Interaction):
+        allow_perms = {
+            "connect": True,
+            "view_channel": True
+        }
+
+        affected = []
+
+        for target in select.values:
+            if not target:
+                continue
+
+            await self.channel.set_permissions(target, **allow_perms)
+            affected.append(target)
+
+        if affected:
+            embed = discord.Embed(
+                title="Allowed!",
+                description=f"Allowed {len(affected)} member(s)/role(s) in your channel.",
+                color=0x00FF00
+            )
+            embed.set_footer(text="This message will disappear in 10 seconds.")
+            await interaction.response.send_message(
+                embed=embed,
+                ephemeral=True,
+                delete_after=10
+            )
 
     async def send_initial_message(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="🔨 Who would you like to ban from your channel?",
-            description=f"They will not be able to see or connect to your channel",
-            footer=discord.EmbedFooter("You have 60 seconds to select at least one member."),
-            color=0x00ff00
+            title="🔨 Manage access to your channel",
+            description=(
+                "Use the menus below to ban or allow members/roles.\n"
+                "Banned users cannot view or connect to the channel."
+            ),
+            color=0x00FF00
         )
-        self.message = await interaction.followup.send(embed=embed, view=self, ephemeral=True, wait=True)  # wait ensures that self.message is set before continuing
+        embed.set_footer(text="You have 60 seconds to make selections.")
+
+        self.message = await interaction.followup.send(
+            embed=embed,
+            view=self,
+            ephemeral=True,
+            wait=True
+        )
 
     async def on_timeout(self):
         if self.message:

@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
-from cogs.creator_menu.embeds import ListCreatorsEmbed, OptionsEmbed
-from cogs.creator_menu.modals import TestModal
+from cogs.creator_menu.embeds import ListCreatorsEmbed
 from cogs.creator_menu.views import CreateView
 
 
