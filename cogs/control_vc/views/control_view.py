@@ -163,7 +163,7 @@ class ControlView(View):
                 clear_button.label = "Clear Msgs"
                 delete_button.label = "Delete"
                 give_button.label = "Give"
-                ban_button.label = "Ban User"
+                ban_button.label = "Ban/Allow User"
 
         if not enabled_controls:
             button = discord.ui.Button(
@@ -187,7 +187,7 @@ class ControlView(View):
                     if "clear" in enabled_controls:
                         options.append(discord.SelectOption(value="clear", label="Clear Messages", emoji="🧽"))
                     if "ban" in enabled_controls:
-                        options.append(discord.SelectOption(value="ban", label="Ban Users or Roles", emoji="🔨"))
+                        options.append(discord.SelectOption(value="ban", label="Ban/Allow Users or Roles", emoji="🔨"))
                     if "give" in enabled_controls:
                         options.append(discord.SelectOption(value="give", label="Give Ownership", emoji="🎁"))
                     if "delete" in enabled_controls:
