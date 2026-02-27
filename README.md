@@ -17,16 +17,16 @@ See the bot's current stats on its 👉[website](https://jackschultz.dev/Robotni
 ![dr-robotnic](https://github.com/user-attachments/assets/c20813de-2453-497d-adc2-e1d23843603d)
 
 ## Features
-1. Dynamic Voice Channel Management
+### 1. Dynamic Voice Channel Management
 
 Automatically creates personal or activity-based voice channels when 
 users join a “creator” channel.
 
-2. Automatic Cleanup
+### 2. Automatic Cleanup
 
 Removes empty temporary channels to keep your server tidy.
 
-3. Configurable Creator Channels
+### 3. Configurable Creator Channels
 
 Server admins can customize:
    - Channel name patterns (e.g. {user}'s channel)
@@ -34,7 +34,7 @@ Server admins can customize:
    - Parent categories
    - Permission inheritance (none, from creator, or from category)
 
-4. Users can control their channel
+### 4. Users can control their channel
 
 The owner of a channel has many controls over it like:
    - Lock or Hide from a default role set in the creator
@@ -43,24 +43,24 @@ The owner of a channel has many controls over it like:
    - Change the limit
    - Change
 
-5. Highly configurable for server owners
+### 5. Highly configurable for server owners
 
 As a server owner you can:
    - Enable or disable each control available to channel owners
    - Set a logging channel and edit which events are logged
    - Editable profanity filter powered by [profanity.dev](https://www.profanity.dev/)
 
-6. SQLite Database Integration
+### 6. SQLite Database Integration
 
 All creator and temporary channel data is stored persistently. This 
 means if the bot goes offline or restarts no data is lost, no 
 orphaned Discord channels possible.
 
-7. Slash Commands & UI Components. 
+### 7. Slash Commands & UI Components. 
 
 Controlled entirely within Discord using dropdowns, buttons, and modals built with Pycord 2.6+ for smooth interaction.
 
-Requirements.txt
+## Requirements.txt
 - py-cord==2.7.0
 - PyNaCl==1.5.0
 - python-dotenv>=1.0.0
