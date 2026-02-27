@@ -12,7 +12,6 @@ async def check_profanity(logger, session, text: str) -> dict | None:
             json={"message": text},
             timeout=3,
         )
-        print("respo", response)
         return response.json()
     except Exception as e:
         logger.warning(f"Profanity API failed, skipping check. {e}")

@@ -3,7 +3,7 @@ import json
 defaults = {
     "guild_id": None,
     "logs_channel_id": None,
-    "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete"],
+    "enabled_controls": ["rename", "limit", "clear", "ban", "give", "delete", "lock", "hide"],
     "mention_owner_bool": 0,
     "profanity_filter": "alert & block",
     "enabled_log_events": ["channel_create", "channel_rename", "channel_remove", "profanity_block"],
