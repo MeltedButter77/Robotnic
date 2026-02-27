@@ -11,7 +11,15 @@ from cogs.control_vc.views.give_ownership import GiveOwnershipView
 from cogs.control_vc.views.ban_user import BanUserView
 
 
-async def update_overwrites(default_role, channel, new_overwrite):
+async def update_overwrites(bot, channel, new_overwrite):
+    # Gets the default_role_id as stored by the creator channel db
+    creator_id = bot.repos.temp_channels.get_info(channel.id).creator_id
+    default_role_id = bot.repos.creator_channels.get_info(creator_id).default_role_id
+    if default_role_id is None:
+        default_role = channel.guild.default_role
+    else:
+        default_role = channel.guild.get_role(default_role_id)
+
     overwrites = channel.overwrites
     overwrites[default_role] = new_overwrite
     await channel.edit(overwrites=overwrites)
@@ -273,8 +281,7 @@ class ControlView(View):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.PUBLIC.value)
 
         new_overwrite = discord.PermissionOverwrite(view_channel=True, connect=True)
-        default_role = interaction.guild.default_role
-        await update_overwrites(default_role, interaction.channel, new_overwrite)
+        await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
 
         await interaction.response.send_message("Your channel is now public.", ephemeral=True, delete_after=20)
@@ -283,8 +290,7 @@ class ControlView(View):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.LOCKED.value)
 
         new_overwrite = discord.PermissionOverwrite(view_channel=True, connect=False)
-        default_role = interaction.guild.default_role
-        await update_overwrites(default_role, interaction.channel, new_overwrite)
+        await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
 
         await interaction.response.send_message("Your channel is now locked.", ephemeral=True, delete_after=20)
@@ -293,8 +299,7 @@ class ControlView(View):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.HIDDEN.value)
 
         new_overwrite = discord.PermissionOverwrite(view_channel=False, connect=False)
-        default_role = interaction.guild.default_role
-        await update_overwrites(default_role, interaction.channel, new_overwrite)
+        await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
 
         await interaction.response.send_message("Your channel is now hidden.", ephemeral=True, delete_after=20)

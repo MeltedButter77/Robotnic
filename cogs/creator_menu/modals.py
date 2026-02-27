@@ -49,7 +49,7 @@ class EditModal(discord.ui.DesignerModal):
             "Optional: Set a Category",
             discord.ui.ChannelSelect(
                 channel_types=[discord.ChannelType.category],
-                min_values=1,
+                min_values=0,
                 max_values=1,
                 required=False,
                 default_values=[category] if category else None,
@@ -58,6 +58,19 @@ class EditModal(discord.ui.DesignerModal):
         )
         self.add_item(self.category_label)
 
+        default_role = self.view.author.guild.get_role(creator_info.default_role_id)
+        self.default_role_label = discord.ui.Label(
+            "Default Role",
+            discord.ui.RoleSelect(
+                min_values=1,
+                max_values=1,
+                required=True,
+                default_values=[default_role] if default_role else None,
+                placeholder="Select a default role"
+            ),
+        )
+        self.add_item(self.default_role_label)
+
     async def callback(self, interaction: discord.Interaction):
         errors = []
 
@@ -65,6 +78,7 @@ class EditModal(discord.ui.DesignerModal):
         user_limit = self.user_limit_label.item.value
         child_overwrites = self.child_overwrites_label.item.values[0] if len(self.child_overwrites_label.item.values) > 0 else None
         child_category_id = self.category_label.item.values[0].id if len(self.category_label.item.values) > 0 else None
+        default_role_id = self.default_role_label.item.values[0].id
 
         creator_info = self.view.bot.repos.creator_channels.get_info(self.creator_id)
         if child_name:
@@ -85,6 +99,11 @@ class EditModal(discord.ui.DesignerModal):
         else:
             user_limit = creator_info.user_limit
 
+        if default_role_id:
+            pass
+        else:
+            default_role_id = creator_info.default_role_id
+
         if errors:
             await interaction.response.send_message(
                 f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),
@@ -98,7 +117,8 @@ class EditModal(discord.ui.DesignerModal):
             child_name=child_name,
             user_limit=user_limit,
             child_category_id=child_category_id,
-            child_overwrites=child_overwrites
+            child_overwrites=child_overwrites,
+            default_role_id=default_role_id
         )
 
         embed = discord.Embed(

@@ -28,7 +28,8 @@ class Database:
                 child_name TEXT,
                 user_limit INTEGER,
                 child_category_id INTEGER,
-                child_overwrites INTEGER
+                child_overwrites INTEGER,
+                default_role_id INTERGER
             )
         """)
         self.cursor.execute("""
