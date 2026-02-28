@@ -282,6 +282,8 @@ class ControlView(View):
         new_overwrite = discord.PermissionOverwrite(view_channel=True, connect=True)
         await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
+        # Acknowledge without sending a message
+        await interaction.response.defer()
 
     async def lock_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.LOCKED.value)
@@ -289,6 +291,7 @@ class ControlView(View):
         new_overwrite = discord.PermissionOverwrite(view_channel=True, connect=False)
         await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
+        await interaction.response.defer()
 
     async def hide_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.HIDDEN.value)
@@ -296,6 +299,7 @@ class ControlView(View):
         new_overwrite = discord.PermissionOverwrite(view_channel=False, connect=False)
         await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
+        await interaction.response.defer()
 
     async def name_button_callback(self, interaction: discord.Interaction):
         if not await is_owner(self, interaction):
