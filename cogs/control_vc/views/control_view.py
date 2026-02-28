@@ -283,8 +283,6 @@ class ControlView(View):
         await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
 
-        await interaction.response.send_message("Your channel is now public.", ephemeral=True, delete_after=20)
-
     async def lock_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.LOCKED.value)
 
@@ -292,16 +290,12 @@ class ControlView(View):
         await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
 
-        await interaction.response.send_message("Your channel is now locked.", ephemeral=True, delete_after=20)
-
     async def hide_button_callback(self, interaction: discord.Interaction):
         self.bot.repos.temp_channels.change_state(interaction.channel.id, ChannelState.HIDDEN.value)
 
         new_overwrite = discord.PermissionOverwrite(view_channel=False, connect=False)
         await update_overwrites(self.bot, interaction.channel, new_overwrite)
         await self.recreate_items()
-
-        await interaction.response.send_message("Your channel is now hidden.", ephemeral=True, delete_after=20)
 
     async def name_button_callback(self, interaction: discord.Interaction):
         if not await is_owner(self, interaction):
