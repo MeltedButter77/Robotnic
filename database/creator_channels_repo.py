@@ -35,7 +35,8 @@ class CreatorChannelsRepository:  # bot.repos.creator_channels
             child_name: str = None,
             user_limit: int = None,
             child_category_id: int = None,
-            child_overwrites: int = None
+            child_overwrites: int = None,
+            default_role_id: int = None
     ):
         """
         Update a creator channel's attributes in the database.
@@ -62,6 +63,10 @@ class CreatorChannelsRepository:  # bot.repos.creator_channels
             fields.append("child_overwrites = ?")
             values.append(child_overwrites)
 
+        if default_role_id is not None:
+            fields.append("default_role_id = ?")
+            values.append(default_role_id)
+
         if not fields:
             # Nothing to update
             return False
@@ -82,7 +87,7 @@ class CreatorChannelsRepository:  # bot.repos.creator_channels
 
     def get_info(self, channel_id):
         self.db.cursor.execute("""
-            SELECT guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites
+            SELECT guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites, default_role_id
             FROM creator_channels
             WHERE channel_id = ?
         """, (channel_id,))
@@ -91,24 +96,25 @@ class CreatorChannelsRepository:  # bot.repos.creator_channels
             return None
 
         class CreatorInfo:
-            def __init__(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
+            def __init__(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites, default_role_id):
                 self.guild_id = guild_id
                 self.channel_id = channel_id
                 self.child_name = child_name
                 self.user_limit = user_limit
                 self.child_category_id = child_category_id
                 self.child_overwrites = child_overwrites
+                self.default_role_id = default_role_id
         return CreatorInfo(*row)
 
-    def add(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites):
+    def add(self, guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites, default_role_id):
         """
         Insert or replace a creator channel record into creator_channels.
         """
         self.db.cursor.execute("""
             INSERT OR REPLACE INTO creator_channels
-            (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites))
+            (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites, default_role_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (guild_id, channel_id, child_name, user_limit, child_category_id, child_overwrites, default_role_id))
         self.db.connection.commit()
 
     def remove(self, channel_id):

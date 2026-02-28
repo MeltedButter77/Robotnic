@@ -1,79 +1,4 @@
 import discord
-from discord.ui import View, Select, Button, Modal, InputText
-
-
-class TestModal(discord.ui.DesignerModal):
-    def __init__(self):
-        super().__init__(title="Edit Your Channel")
-
-        # Define the text inputs
-        # self.channel_name = discord.ui.InputText(
-        #     label="Channel Name (Blank = Default)",
-        #     placeholder=f"sdas",
-        #     required=False,
-        #     max_length=25
-        # )
-
-        self.option_select = discord.ui.Label(
-            "Test Select",
-            discord.ui.Select(
-                options=[
-                    discord.SelectOption(label="1"),
-                    discord.SelectOption(label="2"),
-                    discord.SelectOption(label="3")
-                ],
-            ),
-        )
-        self.add_item(self.option_select)
-
-        # Integer input (short text input; cast to int on submit)
-        self.int_input = discord.ui.Label(
-            "Enter an Integer",
-            discord.ui.TextInput(
-                placeholder="Type a number...",
-                required=True,
-                max_length=10,
-            ),
-        )
-        self.add_item(self.int_input)
-
-        # Text input (longer text field)
-        self.text_input = discord.ui.Label(
-            "Enter Text",
-            discord.ui.TextInput(
-                placeholder="Type any text here...",
-                required=False,
-                max_length=500,
-            ),
-        )
-        self.add_item(self.text_input)
-
-        # Category select
-        self.category_select = discord.ui.Label(
-            "Select a Category",
-            discord.ui.ChannelSelect(
-                channel_types=[discord.ChannelType.category],
-                min_values=1,
-                max_values=1,
-                placeholder="Default: Same as Creator"
-            ),
-        )
-        self.add_item(self.category_select)
-
-    async def callback(self, interaction: discord.Interaction):
-        # Update the channel
-        option_select = str(self.option_select.item.value)
-        int_value = int(self.int_input.item.value)
-        text_value = self.text_input.item.value
-        category = self.category_select.item.value
-
-        embed = discord.Embed(
-            title="Submitted",
-            description=f"{option_select}, {int_value}, {text_value}, {category}",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text="This message will disappear in 30 seconds.")
-        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=30)
 
 
 class EditModal(discord.ui.DesignerModal):
@@ -123,7 +48,7 @@ class EditModal(discord.ui.DesignerModal):
             "Optional: Set a Category",
             discord.ui.ChannelSelect(
                 channel_types=[discord.ChannelType.category],
-                min_values=1,
+                min_values=0,
                 max_values=1,
                 required=False,
                 default_values=[category] if category else None,
@@ -132,6 +57,19 @@ class EditModal(discord.ui.DesignerModal):
         )
         self.add_item(self.category_label)
 
+        default_role = self.view.author.guild.get_role(creator_info.default_role_id)
+        self.default_role_label = discord.ui.Label(
+            "Role edited when Locked or Hidden",
+            discord.ui.RoleSelect(
+                min_values=1,
+                max_values=1,
+                required=False,
+                default_values=[default_role] if default_role else None,
+                placeholder="No selection = @everyone"
+            ),
+        )
+        self.add_item(self.default_role_label)
+
     async def callback(self, interaction: discord.Interaction):
         errors = []
 
@@ -139,6 +77,10 @@ class EditModal(discord.ui.DesignerModal):
         user_limit = self.user_limit_label.item.value
         child_overwrites = self.child_overwrites_label.item.values[0] if len(self.child_overwrites_label.item.values) > 0 else None
         child_category_id = self.category_label.item.values[0].id if len(self.category_label.item.values) > 0 else None
+        if len(self.default_role_label.item.values) > 0:
+            default_role_id = self.default_role_label.item.values[0].id
+        else:
+            default_role_id = None
 
         creator_info = self.view.bot.repos.creator_channels.get_info(self.creator_id)
         if child_name:
@@ -159,6 +101,12 @@ class EditModal(discord.ui.DesignerModal):
         else:
             user_limit = creator_info.user_limit
 
+        # Does not default to current selection if None (like all other options) because the Current role is pre-selected in the menu
+        # This means for it to be None it would be manually cleared.
+        # In this case we reset to @everyone as it is the only role which is not selectable
+        if not default_role_id:
+            default_role_id = interaction.guild.default_role.id
+
         if errors:
             await interaction.response.send_message(
                 f"Invalid input:\n" + "\n".join(f"- {error}" for error in errors),
@@ -172,7 +120,8 @@ class EditModal(discord.ui.DesignerModal):
             child_name=child_name,
             user_limit=user_limit,
             child_category_id=child_category_id,
-            child_overwrites=child_overwrites
+            child_overwrites=child_overwrites,
+            default_role_id=default_role_id
         )
 
         embed = discord.Embed(

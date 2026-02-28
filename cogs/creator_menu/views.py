@@ -78,7 +78,7 @@ class CreateView(View):
             return await interaction.response.send_message(f"This is not your menu!", ephemeral=True)
 
         new_creator_channel = await interaction.guild.create_voice_channel("➕ Create Channel")
-        self.bot.repos.creator_channels.add(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s Room", 0, 0, 1)
+        self.bot.repos.creator_channels.add(new_creator_channel.guild.id, new_creator_channel.id, "{user}'s Room", 0, 0, 1, interaction.guild.default_role.id)
 
         embeds = [discord.Embed(), discord.Embed()]
         embeds[0].title = f"Created {new_creator_channel.mention}! Join to see how it works."
