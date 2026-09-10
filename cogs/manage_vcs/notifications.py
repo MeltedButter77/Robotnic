@@ -10,6 +10,10 @@ async def dm_user_on_create(bot, temp_channel, member, control_view):
     if bot.repos.user_notifications.get_dm_owner_controls(member.id):
         return
 
+    guild_settings = bot.repos.guild_settings.get(temp_channel.guild.id)
+    if not guild_settings["dm_owner_bool"]:
+        return
+
     message_jump_link = f"https://discord.com/channels/{temp_channel.guild.id}/{temp_channel.id}/{control_view.message.id}"
 
     embed = discord.Embed(

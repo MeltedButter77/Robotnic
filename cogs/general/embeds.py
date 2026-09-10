@@ -47,7 +47,12 @@ class HelpEmbed(discord.Embed):
             inline=False
         )
         self.add_field(
-            name="5️⃣ /donate | /support | /website",
+            name="5️⃣ /settings dm-owner",
+            value="Enable or disable DMing channel owners when they create a temporary channel. Defaults to on.",
+            inline=False
+        )
+        self.add_field(
+            name="6️⃣ /donate | /support | /website",
             value="Returns with information on how to support Robotnic's uptime.",
             inline=False
         )

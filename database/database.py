@@ -36,6 +36,7 @@ class Database:
                 "logs_channel_id": "INTEGER",
                 "profanity_filter": "TEXT",
                 "mention_owner_bool": "INTEGER",
+                "dm_owner_bool": "INTEGER",
                 "enabled_controls": "TEXT",
                 "control_options": "TEXT",
                 "enabled_log_events": "TEXT",

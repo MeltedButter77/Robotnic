@@ -58,6 +58,18 @@ class SettingsMenuCog(commands.Cog):
             f"profanity filter set to `{mode}`"
         )
 
+    @settings.command(name="dm-owner", description="Enable or disable DMing channel owners on create")
+    async def dm_owner(
+        self,
+        ctx: discord.ApplicationContext,
+        enabled: discord.Option(
+            bool,
+            description="Whether to DM owners when they create a channel",
+        ),
+    ):
+        self.bot.repos.guild_settings.edit(ctx.guild_id, dm_owner=enabled)
+        await ctx.respond(f"dm-owner set to `{enabled}`")
+
 
 def setup(bot):
     bot.add_cog(SettingsMenuCog(bot))
